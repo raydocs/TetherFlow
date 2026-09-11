@@ -148,7 +148,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             var candidates = ["127.0.0.1"]
             if let gw = self.getDefaultGateway() {
-                candidates.insert(gw, at: 0)
+                candidates.append(gw)
             }
             candidates.append(contentsOf: ["192.168.43.1", "192.168.49.1", "192.168.42.129"])
             
