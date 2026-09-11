@@ -15,7 +15,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
         applyBrowserSpeedOptimizations()
+        ensureInstalledAndAutoStart()
         startDaemonAndMonitor()
+    }
+
+    func ensureInstalledAndAutoStart() {
+        let fileManager = FileManager.default
+        let currentPath = Bundle.main.bundlePath
+        let appDestPath = "/Applications/TetherFlow.app"
+
+        // 1. If not running from /Applications, copy itself to /Applications
+        if currentPath != appDestPath && !currentPath.hasPrefix("/Applications/") {
+            try? fileManager.removeItem(atPath: appDestPath)
+            try? fileManager.copyItem(atPath: currentPath, toPath: appDestPath)
+        }
+
+        // 2. Register into macOS Login Items (开机自动后台静默启动)
+        let script = "tell application \"System Events\" to if not (exists (login item \"TetherFlow\")) then make login item at end with properties {path:\"\(appDestPath)\", hidden:true}"
+        let task = Process()
+        task.launchPath = "/usr/bin/osascript"
+        task.arguments = ["-e", script]
+        try? task.run()
     }
 
     func applyBrowserSpeedOptimizations() {

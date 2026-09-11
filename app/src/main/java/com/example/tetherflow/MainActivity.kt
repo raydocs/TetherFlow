@@ -40,9 +40,18 @@ class MainActivity : ComponentActivity() {
                 val targetDir = java.io.File(downloadDir, "TetherFlow_电脑伴侣")
                 if (!targetDir.exists()) targetDir.mkdirs()
 
+                // 1. Export Windows Companion (.exe)
                 val targetWin = java.io.File(targetDir, "tetherflow-win.exe")
                 assets.open("tetherflow-win.exe").use { input ->
                     targetWin.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+
+                // 2. Export Mac Companion (.zip)
+                val targetMac = java.io.File(targetDir, "TetherFlow-mac.zip")
+                assets.open("TetherFlow-mac.zip").use { input ->
+                    targetMac.outputStream().use { output ->
                         input.copyTo(output)
                     }
                 }
