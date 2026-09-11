@@ -129,11 +129,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    func getDefaultGateway() -> String? {
+        let task = Process()
+        task.launchPath = "/bin/sh"
+        task.arguments = ["-c", "route -n get default | awk '/gateway/{print $2}'"]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        try? task.run()
+        task.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let str = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (str != nil && !str!.isEmpty) ? str : nil
+    }
+
     func checkConnection() {
         DispatchQueue.global(qos: .background).async { [weak self] in
             guard let self = self else { return }
             
-            let candidates = ["127.0.0.1", "192.168.43.1", "192.168.49.1", "192.168.42.129"]
+            var candidates = ["127.0.0.1"]
+            if let gw = self.getDefaultGateway() {
+                candidates.insert(gw, at: 0)
+            }
+            candidates.append(contentsOf: ["192.168.43.1", "192.168.49.1", "192.168.42.129"])
+            
             var detectedIP: String? = nil
 
             for ip in candidates {
