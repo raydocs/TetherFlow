@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strconv"
+	"strings"
 )
 
 func EnableSystemProxy(ip string, port int) error {
@@ -22,3 +23,27 @@ func DisableSystemProxy() error {
 	exec.Command("gsettings", "set", "org.gnome.system.proxy", "mode", "'none'").Run()
 	return nil
 }
+
+func NotifyUser(title, message string) {
+}
+
+func GetSystemDefaultGateways() []string {
+	out, err := exec.Command("sh", "-c", "ip route show default | awk '{print $3}'").Output()
+	if err != nil {
+		return nil
+	}
+	var gws []string
+	seen := make(map[string]bool)
+	for _, line := range strings.Split(string(out), "\n") {
+		gw := strings.TrimSpace(line)
+		if gw != "" && !seen[gw] {
+			seen[gw] = true
+			gws = append(gws, gw)
+		}
+	}
+	return gws
+}
+
+func RegisterExitHandler(onExit func()) {
+}
+

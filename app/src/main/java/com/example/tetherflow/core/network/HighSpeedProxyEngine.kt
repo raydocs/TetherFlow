@@ -169,9 +169,11 @@ class HighSpeedProxyEngine(
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         val net = cellularNetwork ?: cm?.let { findActiveCellularNetwork(it) }
         val addresses = resolveDns(net, host)
+        // Prefer IPv4 first for lowest latency and carrier CGNAT compatibility
+        val sortedAddresses = addresses.sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
 
         var lastException: Exception? = null
-        for (addr in addresses) {
+        for (addr in sortedAddresses) {
             val s = if (net != null) {
                 try {
                     net.socketFactory.createSocket()
@@ -184,7 +186,7 @@ class HighSpeedProxyEngine(
 
             tuneSocket(s)
             try {
-                s.connect(InetSocketAddress(addr, port), 2000)
+                s.connect(InetSocketAddress(addr, port), 1200)
                 return s
             } catch (e: Exception) {
                 try { s.close() } catch (_: Exception) {}
@@ -249,6 +251,12 @@ class HighSpeedProxyEngine(
             val method = parts[0].uppercase()
             val rawUri = parts[1]
 
+            val uriPath = if (rawUri.startsWith("http://", ignoreCase = true)) {
+                val afterProto = rawUri.substring(7)
+                val slashIdx = afterProto.indexOf('/')
+                if (slashIdx != -1) afterProto.substring(slashIdx) else "/"
+            } else rawUri
+
             if (method == "CONNECT") {
                 // HTTPS Tunnel
                 val hostPort = rawUri.split(":")
@@ -264,13 +272,13 @@ class HighSpeedProxyEngine(
                 clientOut.flush()
 
                 pumpDuplex(clientSocket, remoteSocket)
-            } else if (rawUri.startsWith("/download/win")) {
+            } else if (uriPath.startsWith("/download/win")) {
                 skipHeaders(clientIn)
                 serveAssetFile("tetherflow-win.exe", "application/vnd.microsoft.portable-executable", clientOut)
-            } else if (rawUri.startsWith("/download/mac")) {
+            } else if (uriPath.startsWith("/download/mac")) {
                 skipHeaders(clientIn)
                 serveAssetFile("tetherflow-mac-arm64", "application/octet-stream", clientOut)
-            } else if (rawUri == "/pac" || rawUri == "/proxy.pac") {
+            } else if (uriPath == "/pac" || uriPath == "/proxy.pac") {
                 // Return dynamic PAC script
                 skipHeaders(clientIn)
                 val hostHeader = clientSocket.localAddress?.hostAddress ?: "192.168.42.129"
@@ -295,7 +303,7 @@ class HighSpeedProxyEngine(
                         pacContent
                 clientOut.write(response.toByteArray())
                 clientOut.flush()
-            } else if (rawUri == "/" || rawUri == "/setup") {
+            } else if (uriPath == "/" || uriPath == "/setup") {
                 // Landing page for easy 1-click Win/Mac setup
                 skipHeaders(clientIn)
                 val ip = clientSocket.localAddress?.hostAddress ?: "192.168.42.129"

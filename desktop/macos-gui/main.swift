@@ -129,6 +129,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    func tryAdbForward() {
+        let commonPaths = [
+            "/Users/ruirui/Library/Android/sdk/platform-tools/adb",
+            "/usr/local/bin/adb",
+            "/opt/homebrew/bin/adb",
+            "/opt/homebrew/share/android-commandlinetools/platform-tools/adb"
+        ]
+        for p in commonPaths {
+            if FileManager.default.fileExists(atPath: p) {
+                let task = Process()
+                task.launchPath = p
+                task.arguments = ["forward", "tcp:8282", "tcp:8282"]
+                try? task.run()
+                task.waitUntilExit()
+                break
+            }
+        }
+    }
+
     func getDefaultGateway() -> String? {
         let task = Process()
         task.launchPath = "/bin/sh"
@@ -142,9 +161,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return (str != nil && !str!.isEmpty) ? str : nil
     }
 
+    func getActiveNetworkServices() -> [String] {
+        let task = Process()
+        task.launchPath = "/usr/sbin/networksetup"
+        task.arguments = ["-listallnetworkservices"]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        try? task.run()
+        task.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        guard let str = String(data: data, encoding: .utf8) else { return ["Wi-Fi"] }
+        let lines = str.components(separatedBy: .newlines)
+        var services: [String] = []
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if !trimmed.isEmpty && !trimmed.contains("*") {
+                services.append(trimmed)
+            }
+        }
+        return services.isEmpty ? ["Wi-Fi"] : services
+    }
+
     func checkConnection() {
         DispatchQueue.global(qos: .background).async { [weak self] in
             guard let self = self else { return }
+            
+            self.tryAdbForward()
             
             var candidates = ["127.0.0.1"]
             if let gw = self.getDefaultGateway() {
@@ -155,9 +197,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             var detectedIP: String? = nil
 
             for ip in candidates {
-                let url = URL(string: "http://\(ip):8282/download/win")!
+                guard let url = URL(string: "http://\(ip):8282/pac") else { continue }
                 var req = URLRequest(url: url)
-                req.timeoutInterval = 0.6
+                req.timeoutInterval = 0.5
                 
                 let sem = DispatchSemaphore(value: 0)
                 var ok = false
@@ -168,7 +210,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     sem.signal()
                 }
                 task.resume()
-                _ = sem.wait(timeout: .now() + 0.7)
+                _ = sem.wait(timeout: .now() + 0.6)
                 
                 if ok {
                     detectedIP = ip
@@ -189,31 +231,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func enableProxy(ip: String) {
-        let task = Process()
-        task.launchPath = "/usr/sbin/networksetup"
-        task.arguments = ["-setwebproxy", "Wi-Fi", ip, "8282"]
-        try? task.run()
-        task.waitUntilExit()
-        
-        let task2 = Process()
-        task2.launchPath = "/usr/sbin/networksetup"
-        task2.arguments = ["-setsecurewebproxy", "Wi-Fi", ip, "8282"]
-        try? task2.run()
-        task2.waitUntilExit()
+        for svc in getActiveNetworkServices() {
+            let task = Process()
+            task.launchPath = "/usr/sbin/networksetup"
+            task.arguments = ["-setwebproxy", svc, ip, "8282"]
+            try? task.run()
+            task.waitUntilExit()
+            
+            let task2 = Process()
+            task2.launchPath = "/usr/sbin/networksetup"
+            task2.arguments = ["-setsecurewebproxy", svc, ip, "8282"]
+            try? task2.run()
+            task2.waitUntilExit()
+        }
     }
     
     func disableProxy() {
-        let task = Process()
-        task.launchPath = "/usr/sbin/networksetup"
-        task.arguments = ["-setwebproxystate", "Wi-Fi", "off"]
-        try? task.run()
-        task.waitUntilExit()
-        
-        let task2 = Process()
-        task2.launchPath = "/usr/sbin/networksetup"
-        task2.arguments = ["-setsecurewebproxystate", "Wi-Fi", "off"]
-        try? task2.run()
-        task2.waitUntilExit()
+        for svc in getActiveNetworkServices() {
+            let task = Process()
+            task.launchPath = "/usr/sbin/networksetup"
+            task.arguments = ["-setwebproxystate", svc, "off"]
+            try? task.run()
+            task.waitUntilExit()
+            
+            let task2 = Process()
+            task2.launchPath = "/usr/sbin/networksetup"
+            task2.arguments = ["-setsecurewebproxystate", svc, "off"]
+            try? task2.run()
+            task2.waitUntilExit()
+        }
     }
     
     func fetchIPInfo(ip: String) {
@@ -232,8 +278,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                   let publicIp = json["ip"] as? String,
                   let org = json["org"] as? String else { return }
             
+            let isUsb = (ip == "127.0.0.1")
+            let modeTitle = isUsb ? "🟢 5G 已直连 [USB 3.0 5Gbps 满速]" : "🟢 5G 已直连 [5G Wi-Fi 6 无线]"
+            
             DispatchQueue.main.async {
-                self.statusLabel.stringValue = "🟢 5G 已连接 (全速接力中)"
+                self.statusLabel.stringValue = modeTitle
                 self.statusLabel.textColor = .systemGreen
                 self.ipLabel.stringValue = "出口 IP: \(publicIp) [\(ip)]"
                 self.ispLabel.stringValue = "运营商: \(org)"

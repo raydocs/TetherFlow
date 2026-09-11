@@ -55,3 +55,24 @@ func NotifyUser(title, message string) {
 	script := strings.ReplaceAll(message, `"`, `\"`)
 	exec.Command("osascript", "-e", `display notification "`+script+`" with title "`+title+`"`).Run()
 }
+
+func GetSystemDefaultGateways() []string {
+	out, err := exec.Command("sh", "-c", "route -n get default | awk '/gateway/{print $2}'").Output()
+	if err != nil {
+		return nil
+	}
+	var gws []string
+	seen := make(map[string]bool)
+	for _, line := range strings.Split(string(out), "\n") {
+		gw := strings.TrimSpace(line)
+		if gw != "" && !seen[gw] {
+			seen[gw] = true
+			gws = append(gws, gw)
+		}
+	}
+	return gws
+}
+
+func RegisterExitHandler(onExit func()) {
+}
+
