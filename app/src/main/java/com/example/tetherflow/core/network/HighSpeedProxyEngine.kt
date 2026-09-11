@@ -24,13 +24,18 @@ class HighSpeedProxyEngine(
     private val context: Context,
     val port: Int = 8282
 ) {
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val proxyDispatcher = Dispatchers.IO.limitedParallelism(512)
+    private val scope = CoroutineScope(proxyDispatcher + SupervisorJob())
     private var serverSocket: ServerSocket? = null
     private var cellularNetwork: Network? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     @Volatile
     private var isRunning = false
+
+    // High-speed DNS cache (5 min TTL) to eliminate per-request cellular DNS latency
+    private val dnsCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Array<java.net.InetAddress>>>()
 
     // Real-time Traffic Counters
     private val totalDown = AtomicLong(0L)
@@ -51,7 +56,7 @@ class HighSpeedProxyEngine(
 
     private fun acquireBuffer(): ByteArray = bufferPool.poll() ?: ByteArray(BUFFER_SIZE)
     private fun releaseBuffer(buf: ByteArray) {
-        if (bufferPool.size < 64) bufferPool.offer(buf)
+        if (bufferPool.size < 128) bufferPool.offer(buf)
     }
 
     fun start() {
@@ -65,8 +70,8 @@ class HighSpeedProxyEngine(
             try {
                 serverSocket = ServerSocket().apply {
                     reuseAddress = true
-                    receiveBufferSize = 1024 * 1024
-                    bind(InetSocketAddress("0.0.0.0", port), 256)
+                    receiveBufferSize = 2 * 1024 * 1024
+                    bind(InetSocketAddress("0.0.0.0", port), 512)
                 }
 
                 _stats.update {
@@ -146,15 +151,24 @@ class HighSpeedProxyEngine(
         return null
     }
 
-    private fun createConnectedRemoteSocket(host: String, port: Int): Socket {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-        val net = cellularNetwork ?: cm?.let { findActiveCellularNetwork(it) }
-
-        val addresses = try {
+    private fun resolveDns(net: Network?, host: String): Array<java.net.InetAddress> {
+        val now = System.currentTimeMillis()
+        dnsCache[host]?.let { (expireAt, addrs) ->
+            if (now < expireAt) return addrs
+        }
+        val addrs = try {
             net?.getAllByName(host) ?: java.net.InetAddress.getAllByName(host)
         } catch (_: Exception) {
             java.net.InetAddress.getAllByName(host)
         }
+        dnsCache[host] = Pair(now + 300_000L, addrs)
+        return addrs
+    }
+
+    private fun createConnectedRemoteSocket(host: String, port: Int): Socket {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val net = cellularNetwork ?: cm?.let { findActiveCellularNetwork(it) }
+        val addresses = resolveDns(net, host)
 
         var lastException: Exception? = null
         for (addr in addresses) {
@@ -170,7 +184,7 @@ class HighSpeedProxyEngine(
 
             tuneSocket(s)
             try {
-                s.connect(InetSocketAddress(addr, port), 4000)
+                s.connect(InetSocketAddress(addr, port), 2000)
                 return s
             } catch (e: Exception) {
                 try { s.close() } catch (_: Exception) {}
@@ -222,7 +236,7 @@ class HighSpeedProxyEngine(
         }
     }
 
-    private suspend fun handleConnection(clientSocket: Socket) = withContext(Dispatchers.IO) {
+    private suspend fun handleConnection(clientSocket: Socket) = withContext(proxyDispatcher) {
         var remoteSocket: Socket? = null
         try {
             val clientIn = clientSocket.getInputStream()
@@ -407,14 +421,14 @@ class HighSpeedProxyEngine(
         val remoteIn = remote.getInputStream()
         val remoteOut = remote.getOutputStream()
 
-        val uploadJob = launch(Dispatchers.IO) {
+        val uploadJob = launch(proxyDispatcher) {
             try {
                 pumpStream(clientIn, remoteOut, totalUp)
             } finally {
                 try { remote.shutdownOutput() } catch (_: Exception) {}
             }
         }
-        val downloadJob = launch(Dispatchers.IO) {
+        val downloadJob = launch(proxyDispatcher) {
             try {
                 pumpStream(remoteIn, clientOut, totalDown)
             } finally {
