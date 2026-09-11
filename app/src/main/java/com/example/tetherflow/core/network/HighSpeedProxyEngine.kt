@@ -50,13 +50,13 @@ class HighSpeedProxyEngine(
     private val _stats = MutableStateFlow(ConnectionStats())
     val stats: StateFlow<ConnectionStats> = _stats.asStateFlow()
 
-    // 64 KB Buffer pool for zero-allocation streaming
-    private val BUFFER_SIZE = 64 * 1024
+    // 256 KB Buffer pool for Gigabit-class zero-allocation streaming
+    private val BUFFER_SIZE = 256 * 1024
     private val bufferPool = ConcurrentLinkedQueue<ByteArray>()
 
     private fun acquireBuffer(): ByteArray = bufferPool.poll() ?: ByteArray(BUFFER_SIZE)
     private fun releaseBuffer(buf: ByteArray) {
-        if (bufferPool.size < 128) bufferPool.offer(buf)
+        if (bufferPool.size < 256) bufferPool.offer(buf)
     }
 
     fun start() {
@@ -197,8 +197,8 @@ class HighSpeedProxyEngine(
     private fun tuneSocket(socket: Socket) {
         try {
             socket.tcpNoDelay = true
-            socket.receiveBufferSize = 2 * 1024 * 1024
-            socket.sendBufferSize = 2 * 1024 * 1024
+            socket.receiveBufferSize = 4 * 1024 * 1024
+            socket.sendBufferSize = 4 * 1024 * 1024
             socket.soTimeout = 0 // Infinite for streaming
             socket.keepAlive = true
         } catch (_: Exception) {}
@@ -446,9 +446,9 @@ class HighSpeedProxyEngine(
             var bytesRead: Int
             while (input.read(buffer).also { bytesRead = it } != -1) {
                 output.write(buffer, 0, bytesRead)
-                output.flush()
                 counter.addAndGet(bytesRead.toLong())
             }
+            output.flush()
         } catch (_: Exception) {
         } finally {
             releaseBuffer(buffer)

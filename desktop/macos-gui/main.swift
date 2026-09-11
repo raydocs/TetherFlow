@@ -133,26 +133,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.global(qos: .background).async { [weak self] in
             guard let self = self else { return }
             
-            // Check if phone proxy 8282 is listening
-            let url = URL(string: "http://127.0.0.1:8282/download/win")!
-            var req = URLRequest(url: url)
-            req.timeoutInterval = 1.0
-            
-            let sem = DispatchSemaphore(value: 0)
-            var alive = false
-            let task = URLSession.shared.dataTask(with: req) { _, resp, _ in
-                if let http = resp as? HTTPURLResponse, http.statusCode == 200 {
-                    alive = true
+            let candidates = ["127.0.0.1", "192.168.43.1", "192.168.49.1", "192.168.42.129"]
+            var detectedIP: String? = nil
+
+            for ip in candidates {
+                let url = URL(string: "http://\(ip):8282/download/win")!
+                var req = URLRequest(url: url)
+                req.timeoutInterval = 0.6
+                
+                let sem = DispatchSemaphore(value: 0)
+                var ok = false
+                let task = URLSession.shared.dataTask(with: req) { _, resp, _ in
+                    if let http = resp as? HTTPURLResponse, http.statusCode == 200 {
+                        ok = true
+                    }
+                    sem.signal()
                 }
-                sem.signal()
+                task.resume()
+                _ = sem.wait(timeout: .now() + 0.7)
+                
+                if ok {
+                    detectedIP = ip
+                    break
+                }
             }
-            task.resume()
-            _ = sem.wait(timeout: .now() + 1.2)
             
-            if alive {
-                self.enableProxy()
-                // Fetch public IP info via proxy
-                self.fetchIPInfo()
+            if let ip = detectedIP {
+                self.enableProxy(ip: ip)
+                self.fetchIPInfo(ip: ip)
             } else {
                 DispatchQueue.main.async {
                     self.statusLabel.stringValue = "🟡 等待手机连接 (请开启手机端开关)..."
@@ -162,16 +170,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
-    func enableProxy() {
+    func enableProxy(ip: String) {
         let task = Process()
         task.launchPath = "/usr/sbin/networksetup"
-        task.arguments = ["-setwebproxy", "Wi-Fi", "127.0.0.1", "8282"]
+        task.arguments = ["-setwebproxy", "Wi-Fi", ip, "8282"]
         try? task.run()
         task.waitUntilExit()
         
         let task2 = Process()
         task2.launchPath = "/usr/sbin/networksetup"
-        task2.arguments = ["-setsecurewebproxy", "Wi-Fi", "127.0.0.1", "8282"]
+        task2.arguments = ["-setsecurewebproxy", "Wi-Fi", ip, "8282"]
         try? task2.run()
         task2.waitUntilExit()
     }
@@ -190,11 +198,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         task2.waitUntilExit()
     }
     
-    func fetchIPInfo() {
+    func fetchIPInfo(ip: String) {
         let config = URLSessionConfiguration.ephemeral
         config.connectionProxyDictionary = [
             kCFNetworkProxiesHTTPEnable as String: true,
-            kCFNetworkProxiesHTTPProxy as String: "127.0.0.1",
+            kCFNetworkProxiesHTTPProxy as String: ip,
             kCFNetworkProxiesHTTPPort as String: 8282
         ]
         let session = URLSession(configuration: config)
@@ -203,13 +211,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         session.dataTask(with: url) { [weak self] data, _, _ in
             guard let self = self, let data = data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let ip = json["ip"] as? String,
+                  let publicIp = json["ip"] as? String,
                   let org = json["org"] as? String else { return }
             
             DispatchQueue.main.async {
                 self.statusLabel.stringValue = "🟢 5G 已连接 (全速接力中)"
                 self.statusLabel.textColor = .systemGreen
-                self.ipLabel.stringValue = "出口 IP: \(ip)"
+                self.ipLabel.stringValue = "出口 IP: \(publicIp) [\(ip)]"
                 self.ispLabel.stringValue = "运营商: \(org)"
                 self.quotaLabel.stringValue = "热点侦测: 绕过成功 (TTL=64 无限流量)"
             }
