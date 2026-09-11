@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -42,6 +43,11 @@ func main() {
 		os.Exit(0)
 	}()
 
+	tray := StartTray(func() {
+		cleanup()
+		os.Exit(0)
+	})
+
 	client := &http.Client{
 		Timeout: 600 * time.Millisecond,
 	}
@@ -54,10 +60,8 @@ func main() {
 		if !isConnected {
 			foundIP := probeTetherFlow(client)
 			if foundIP != "" {
-				linkType := "5G 无线热点"
-				if foundIP == "127.0.0.1" {
-					linkType = "USB 3.0 极速中继 (5 Gbps)"
-				}
+				linkType, _, isWarn := DetectLinkDetails(foundIP)
+
 				fmt.Printf("\n[+] 检测到 TetherFlow 节点: %s:%d [%s]\n", foundIP, defaultPort, linkType)
 				fmt.Println("[+] 正在激活系统级零热点 5G 极速通道...")
 				if err := EnableSystemProxy(foundIP, defaultPort); err != nil {
@@ -65,7 +69,17 @@ func main() {
 				} else {
 					fmt.Println("[SUCCESS] 🚀 已连接！电脑现已直通手机原生 5G 网络。")
 					fmt.Println("[INFO] 零热点配额扣除 (TTL=64 穿透，直连 nrphone 蜂窝 APN)。")
-					NotifyUser("TetherFlow 🚀", fmt.Sprintf("已接入 5G 满速网络 [%s]！(零热点配额消耗)", linkType))
+					
+					tray.SetStatus(linkType, foundIP)
+					balloonTitle := "TetherFlow 🚀"
+					balloonMsg := fmt.Sprintf("已直连 5G 满速通道！\n协议: %s\n(零热点配额消耗)", linkType)
+					if isWarn {
+						balloonTitle = "TetherFlow ⚠️ (降级提醒)"
+						balloonMsg = "已接入网络，但当前数据线处于 USB 2.0 模式 (上限 250Mbps)。\n如需 1,200Mbps 极速，请换插 USB 3.0 接口或粗线！"
+					}
+					tray.NotifyBalloon(balloonTitle, balloonMsg, isWarn)
+					NotifyUser(balloonTitle, balloonMsg)
+
 					isConnected = true
 					activeIP = foundIP
 					missCount = 0
@@ -76,11 +90,13 @@ func main() {
 			if activeIP != "127.0.0.1" {
 				tryAdbForward()
 				if checkAlive(client, "127.0.0.1", defaultPort) {
-					fmt.Println("\n[🚀 发现 USB 极速连接] 自动平滑切换至 USB 3.0 (127.0.0.1)...")
+					linkType, _, isWarn := DetectLinkDetails("127.0.0.1")
+					fmt.Printf("\n[🚀 发现 USB 极速连接] 自动平滑切换至 %s (127.0.0.1)...\n", linkType)
 					EnableSystemProxy("127.0.0.1", defaultPort)
 					activeIP = "127.0.0.1"
 					missCount = 0
-					NotifyUser("TetherFlow 🚀", "已自动升级至 USB 3.0 极速中继 (5 Gbps)！")
+					tray.SetStatus(linkType, "127.0.0.1")
+					tray.NotifyBalloon("TetherFlow 🚀", "已平滑切换至 USB 直连通道！\n"+linkType, isWarn)
 				}
 			}
 
@@ -93,6 +109,8 @@ func main() {
 					fmt.Printf("\n[-] 手机已断开 (%s)。\n", activeIP)
 					fmt.Println("[-] 正在恢复电脑默认网络...")
 					DisableSystemProxy()
+					tray.SetStatus("等待手机连接...", "")
+					tray.NotifyBalloon("TetherFlow", "手机已断开，已自动恢复默认网络。", false)
 					NotifyUser("TetherFlow", "手机已断开，已自动恢复默认网络。")
 					isConnected = false
 					activeIP = ""
@@ -210,7 +228,7 @@ func probeTetherFlow(client *http.Client) string {
 
 func checkAlive(client *http.Client, ip string, port int) bool {
 	// Quick TCP port check first
-	target := fmt.Sprintf("%s:%d", ip, port)
+	target := net.JoinHostPort(ip, strconv.Itoa(port))
 	conn, err := net.DialTimeout("tcp", target, 300*time.Millisecond)
 	if err != nil {
 		return false
