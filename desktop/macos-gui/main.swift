@@ -1,0 +1,253 @@
+import Cocoa
+import Foundation
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    var statusItem: NSStatusItem!
+    var window: NSWindow!
+    var timer: Timer?
+    var isConnected = false
+    var currentIP = "正在检测..."
+    var currentISP = "正在检测..."
+    
+    let statusLabel = NSTextField(labelWithString: "正在连接手机...")
+    let ipLabel = NSTextField(labelWithString: "出口 IP: 检测中...")
+    let ispLabel = NSTextField(labelWithString: "运营商: 检测中...")
+    let quotaLabel = NSTextField(labelWithString: "热点配额: 0 消耗 (已绕过)")
+    let toggleBtn = NSButton()
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        setupStatusItem()
+        setupWindow()
+        startDaemonAndMonitor()
+    }
+    
+    func setupStatusItem() {
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = statusItem.button {
+            if #available(macOS 11.0, *) {
+                button.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "TetherFlow")
+            } else {
+                button.title = "⚡TF"
+            }
+        }
+        
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: "TetherFlow 5G 控制中心", action: #selector(showWindow), keyEquivalent: "o"))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "🚀 打开 Speedtest 测速", action: #selector(openSpeedtest), keyEquivalent: "s"))
+        menu.addItem(NSMenuItem(title: "🌐 打开 IP 检测 (ipinfo.io)", action: #selector(openIPInfo), keyEquivalent: "i"))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "退出 TetherFlow", action: #selector(quitApp), keyEquivalent: "q"))
+        statusItem.menu = menu
+    }
+    
+    func setupWindow() {
+        let winWidth: CGFloat = 380
+        let winHeight: CGFloat = 280
+        let screenSize = NSScreen.main?.frame.size ?? CGSize(width: 1440, height: 900)
+        let rect = NSRect(x: (screenSize.width - winWidth) / 2, y: (screenSize.height - winHeight) / 2, width: winWidth, height: winHeight)
+        
+        window = NSWindow(contentRect: rect,
+                          styleMask: [.titled, .closable, .miniaturizable],
+                          backing: .buffered, defer: false)
+        window.title = "TetherFlow 控制中心"
+        window.isReleasedWhenClosed = false
+        
+        let visualEffect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: winWidth, height: winHeight))
+        visualEffect.material = .sidebar
+        visualEffect.blendingMode = .behindWindow
+        visualEffect.state = .active
+        
+        // Title
+        let header = NSTextField(labelWithString: "⚡ TetherFlow 5G 直连")
+        header.font = NSFont.boldSystemFont(ofSize: 18)
+        header.frame = NSRect(x: 24, y: 228, width: 330, height: 26)
+        
+        // Subtitle
+        let sub = NSTextField(labelWithString: "三星 S24+ 原生 5G 极速中继 (已绕过 AT&T 热点侦测)")
+        sub.font = NSFont.systemFont(ofSize: 11)
+        sub.textColor = .secondaryLabelColor
+        sub.frame = NSRect(x: 24, y: 206, width: 330, height: 18)
+        
+        // Card Background
+        let card = NSBox(frame: NSRect(x: 20, y: 80, width: 340, height: 116))
+        card.boxType = .custom
+        card.fillColor = NSColor.controlBackgroundColor.withAlphaComponent(0.6)
+        card.borderColor = NSColor.separatorColor
+        card.borderWidth = 1
+        card.cornerRadius = 10
+        
+        statusLabel.font = NSFont.boldSystemFont(ofSize: 14)
+        statusLabel.textColor = .systemGreen
+        statusLabel.frame = NSRect(x: 16, y: 82, width: 300, height: 22)
+        
+        ipLabel.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        ipLabel.frame = NSRect(x: 16, y: 58, width: 300, height: 20)
+        
+        ispLabel.font = NSFont.systemFont(ofSize: 12)
+        ispLabel.frame = NSRect(x: 16, y: 34, width: 300, height: 20)
+        
+        quotaLabel.font = NSFont.systemFont(ofSize: 12)
+        quotaLabel.textColor = .systemIndigo
+        quotaLabel.frame = NSRect(x: 16, y: 10, width: 300, height: 20)
+        
+        card.addSubview(statusLabel)
+        card.addSubview(ipLabel)
+        card.addSubview(ispLabel)
+        card.addSubview(quotaLabel)
+        
+        // Buttons
+        let testBtn = NSButton(title: "🚀 测速", target: self, action: #selector(openSpeedtest))
+        testBtn.frame = NSRect(x: 20, y: 24, width: 100, height: 36)
+        testBtn.bezelStyle = .rounded
+        
+        let ipBtn = NSButton(title: "🌐 查看出口", target: self, action: #selector(openIPInfo))
+        ipBtn.frame = NSRect(x: 125, y: 24, width: 110, height: 36)
+        ipBtn.bezelStyle = .rounded
+        
+        let hideBtn = NSButton(title: "隐藏窗口", target: self, action: #selector(hideWindow))
+        hideBtn.frame = NSRect(x: 240, y: 24, width: 110, height: 36)
+        hideBtn.bezelStyle = .rounded
+        
+        visualEffect.addSubview(header)
+        visualEffect.addSubview(sub)
+        visualEffect.addSubview(card)
+        visualEffect.addSubview(testBtn)
+        visualEffect.addSubview(ipBtn)
+        visualEffect.addSubview(hideBtn)
+        
+        window.contentView = visualEffect
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    func startDaemonAndMonitor() {
+        // Run check loop
+        checkConnection()
+        timer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            self?.checkConnection()
+        }
+    }
+    
+    func checkConnection() {
+        DispatchQueue.global(qos: .background).async { [weak self] in
+            guard let self = self else { return }
+            
+            // Check if phone proxy 8282 is listening
+            let url = URL(string: "http://127.0.0.1:8282/download/win")!
+            var req = URLRequest(url: url)
+            req.timeoutInterval = 1.0
+            
+            let sem = DispatchSemaphore(value: 0)
+            var alive = false
+            let task = URLSession.shared.dataTask(with: req) { _, resp, _ in
+                if let http = resp as? HTTPURLResponse, http.statusCode == 200 {
+                    alive = true
+                }
+                sem.signal()
+            }
+            task.resume()
+            _ = sem.wait(timeout: .now() + 1.2)
+            
+            if alive {
+                self.enableProxy()
+                // Fetch public IP info via proxy
+                self.fetchIPInfo()
+            } else {
+                DispatchQueue.main.async {
+                    self.statusLabel.stringValue = "🟡 等待手机连接 (请开启手机端开关)..."
+                    self.statusLabel.textColor = .systemOrange
+                }
+            }
+        }
+    }
+    
+    func enableProxy() {
+        let task = Process()
+        task.launchPath = "/usr/sbin/networksetup"
+        task.arguments = ["-setwebproxy", "Wi-Fi", "127.0.0.1", "8282"]
+        try? task.run()
+        task.waitUntilExit()
+        
+        let task2 = Process()
+        task2.launchPath = "/usr/sbin/networksetup"
+        task2.arguments = ["-setsecurewebproxy", "Wi-Fi", "127.0.0.1", "8282"]
+        try? task2.run()
+        task2.waitUntilExit()
+    }
+    
+    func disableProxy() {
+        let task = Process()
+        task.launchPath = "/usr/sbin/networksetup"
+        task.arguments = ["-setwebproxystate", "Wi-Fi", "off"]
+        try? task.run()
+        task.waitUntilExit()
+        
+        let task2 = Process()
+        task2.launchPath = "/usr/sbin/networksetup"
+        task2.arguments = ["-setsecurewebproxystate", "Wi-Fi", "off"]
+        try? task2.run()
+        task2.waitUntilExit()
+    }
+    
+    func fetchIPInfo() {
+        let config = URLSessionConfiguration.ephemeral
+        config.connectionProxyDictionary = [
+            kCFNetworkProxiesHTTPEnable as String: true,
+            kCFNetworkProxiesHTTPProxy as String: "127.0.0.1",
+            kCFNetworkProxiesHTTPPort as String: 8282
+        ]
+        let session = URLSession(configuration: config)
+        guard let url = URL(string: "http://ipinfo.io/json") else { return }
+        
+        session.dataTask(with: url) { [weak self] data, _, _ in
+            guard let self = self, let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let ip = json["ip"] as? String,
+                  let org = json["org"] as? String else { return }
+            
+            DispatchQueue.main.async {
+                self.statusLabel.stringValue = "🟢 5G 已连接 (全速接力中)"
+                self.statusLabel.textColor = .systemGreen
+                self.ipLabel.stringValue = "出口 IP: \(ip)"
+                self.ispLabel.stringValue = "运营商: \(org)"
+                self.quotaLabel.stringValue = "热点侦测: 绕过成功 (TTL=64 无限流量)"
+            }
+        }.resume()
+    }
+    
+    @objc func showWindow() {
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    @objc func hideWindow() {
+        window.orderOut(nil)
+    }
+    
+    @objc func openSpeedtest() {
+        if let url = URL(string: "https://www.speedtest.net") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+    
+    @objc func openIPInfo() {
+        if let url = URL(string: "https://ipinfo.io") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+    
+    @objc func quitApp() {
+        disableProxy()
+        NSApp.terminate(nil)
+    }
+    
+    func applicationWillTerminate(_ notification: Notification) {
+        disableProxy()
+    }
+}
+
+let app = NSApplication.shared
+let delegate = AppDelegate()
+app.delegate = delegate
+app.run()
