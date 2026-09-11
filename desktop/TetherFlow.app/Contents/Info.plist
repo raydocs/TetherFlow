@@ -18,6 +18,8 @@
     <string>1.0.0</string>
     <key>CFBundleExecutable</key>
     <string>TetherFlow</string>
+    <key>LSUIElement</key>
+    <true/>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2026 raydocs. All rights reserved.</string>
 </dict>
