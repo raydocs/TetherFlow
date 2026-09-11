@@ -18,6 +18,7 @@ var candidateIPs = []string{
 	"192.168.42.129", // Android USB Tethering (RNDIS / CDC-NCM default)
 	"192.168.49.1",   // Android Wi-Fi Direct default
 	"192.168.43.1",   // Android LocalHotspot default
+	"127.0.0.1",      // ADB Forward / USB Tunnel (Instant test & zero-configuration)
 }
 
 func main() {
