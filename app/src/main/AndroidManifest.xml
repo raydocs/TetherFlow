@@ -54,7 +54,7 @@
         <!-- Zero-Loss Proxy Foreground Service -->
         <service
             android:name=".service.ProxyForegroundService"
-            android:exported="false"
+            android:exported="true"
             android:foregroundServiceType="connectedDevice" />
 
         <!-- Quick Settings Tile for One UI Quick Panel -->

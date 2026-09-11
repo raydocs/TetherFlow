@@ -97,17 +97,31 @@ class HighSpeedProxyEngine(
 
     private fun bindCellularUpstream() {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        cellularNetwork = findActiveCellularNetwork(cm)
+
         val request = NetworkRequest.Builder()
             .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
             .build()
 
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                cellularNetwork = network
+                val caps = cm.getNetworkCapabilities(network)
+                if (caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED) == true) {
+                    cellularNetwork = network
+                }
+            }
+            override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)) {
+                    cellularNetwork = network
+                }
             }
             override fun onLost(network: Network) {
-                if (cellularNetwork == network) cellularNetwork = null
+                if (cellularNetwork == network) {
+                    cellularNetwork = findActiveCellularNetwork(cm)
+                }
             }
         }
         networkCallback = callback
@@ -118,12 +132,60 @@ class HighSpeedProxyEngine(
         }
     }
 
+    private fun findActiveCellularNetwork(cm: ConnectivityManager): Network? {
+        try {
+            for (net in cm.allNetworks) {
+                val caps = cm.getNetworkCapabilities(net) ?: continue
+                if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) &&
+                    caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)) {
+                    return net
+                }
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    private fun createConnectedRemoteSocket(host: String, port: Int): Socket {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val net = cellularNetwork ?: cm?.let { findActiveCellularNetwork(it) }
+
+        val addresses = try {
+            net?.getAllByName(host) ?: java.net.InetAddress.getAllByName(host)
+        } catch (_: Exception) {
+            java.net.InetAddress.getAllByName(host)
+        }
+
+        var lastException: Exception? = null
+        for (addr in addresses) {
+            val s = if (net != null) {
+                try {
+                    net.socketFactory.createSocket()
+                } catch (_: Exception) {
+                    Socket().also { net.bindSocket(it) }
+                }
+            } else {
+                Socket()
+            }
+
+            tuneSocket(s)
+            try {
+                s.connect(InetSocketAddress(addr, port), 4000)
+                return s
+            } catch (e: Exception) {
+                try { s.close() } catch (_: Exception) {}
+                lastException = e
+            }
+        }
+        throw lastException ?: java.io.IOException("Unable to connect to $host:$port")
+    }
+
     private fun tuneSocket(socket: Socket) {
         try {
             socket.tcpNoDelay = true
-            socket.receiveBufferSize = 1024 * 1024
-            socket.sendBufferSize = 1024 * 1024
-            socket.soTimeout = 30_000
+            socket.receiveBufferSize = 2 * 1024 * 1024
+            socket.sendBufferSize = 2 * 1024 * 1024
+            socket.soTimeout = 0 // Infinite for streaming
             socket.keepAlive = true
         } catch (_: Exception) {}
     }
@@ -181,13 +243,7 @@ class HighSpeedProxyEngine(
 
                 skipHeaders(clientIn)
 
-                remoteSocket = Socket()
-                tuneSocket(remoteSocket)
-
-                // Bind to Cellular 5G Network to bypass Hotspot / DUN APN
-                cellularNetwork?.bindSocket(remoteSocket)
-
-                remoteSocket.connect(InetSocketAddress(host, port), 10_000)
+                remoteSocket = createConnectedRemoteSocket(host, port)
 
                 val established = "HTTP/1.1 200 Connection Established\r\n\r\n".toByteArray()
                 clientOut.write(established)
@@ -318,10 +374,7 @@ class HighSpeedProxyEngine(
             val host = hp[0]
             val port = if (hp.size > 1) hp[1].toIntOrNull() ?: 80 else 80
 
-            remoteSocket = Socket()
-            tuneSocket(remoteSocket)
-            cellularNetwork?.bindSocket(remoteSocket)
-            remoteSocket.connect(InetSocketAddress(host, port), 10_000)
+            remoteSocket = createConnectedRemoteSocket(host, port)
 
             val remoteOut = remoteSocket.getOutputStream()
             val remoteIn = remoteSocket.getInputStream()
@@ -355,17 +408,22 @@ class HighSpeedProxyEngine(
         val remoteOut = remote.getOutputStream()
 
         val uploadJob = launch(Dispatchers.IO) {
-            pumpStream(clientIn, remoteOut, totalUp)
+            try {
+                pumpStream(clientIn, remoteOut, totalUp)
+            } finally {
+                try { remote.shutdownOutput() } catch (_: Exception) {}
+            }
         }
         val downloadJob = launch(Dispatchers.IO) {
-            pumpStream(remoteIn, clientOut, totalDown)
+            try {
+                pumpStream(remoteIn, clientOut, totalDown)
+            } finally {
+                try { client.shutdownOutput() } catch (_: Exception) {}
+            }
         }
 
-        while (uploadJob.isActive && downloadJob.isActive) {
-            delay(150)
-        }
-        uploadJob.cancel()
-        downloadJob.cancel()
+        uploadJob.join()
+        downloadJob.join()
     }
 
     private fun pumpStream(input: InputStream, output: OutputStream, counter: AtomicLong) {
