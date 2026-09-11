@@ -19,6 +19,8 @@ const (
 )
 
 func main() {
+	EnsureAutoStart()
+
 	fmt.Println("=====================================================")
 	fmt.Println("       TetherFlow Desktop Companion (Win & Mac)      ")
 	fmt.Println("=====================================================")

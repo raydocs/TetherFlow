@@ -19,6 +19,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        exportCompanionFiles()
         enableEdgeToEdge()
         setContent {
             TetherFlowTheme {
@@ -30,6 +31,23 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun exportCompanionFiles() {
+        Thread {
+            try {
+                val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                val targetDir = java.io.File(downloadDir, "TetherFlow_电脑伴侣")
+                if (!targetDir.exists()) targetDir.mkdirs()
+
+                val targetWin = java.io.File(targetDir, "tetherflow-win.exe")
+                assets.open("tetherflow-win.exe").use { input ->
+                    targetWin.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            } catch (_: Exception) {}
+        }.start()
     }
 
     override fun onResume() {
