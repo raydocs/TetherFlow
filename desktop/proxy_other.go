@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+func ApplySystemMode(ip string, port int, mode string) error {
+	return EnableSystemProxy(ip, port)
+}
+
 func EnableSystemProxy(ip string, port int) error {
 	portStr := strconv.Itoa(port)
 	exec.Command("gsettings", "set", "org.gnome.system.proxy", "mode", "'manual'").Run()

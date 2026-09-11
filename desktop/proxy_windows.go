@@ -27,37 +27,42 @@ func notifyWindowsProxyChange() {
 	internetSetOption.Call(0, uintptr(INTERNET_OPTION_REFRESH), 0, 0)
 }
 
-func EnableSystemProxy(ip string, port int) error {
-	addr := fmt.Sprintf("%s:%d", ip, port)
-	override := "<local>;localhost;127.*;10.*;192.168.*;172.16.*"
-
+func ApplySystemMode(ip string, port int, mode string) error {
 	regKey := `HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
 
-	cmd1 := exec.Command("reg", "add", regKey, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f")
-	if err := cmd1.Run(); err != nil {
-		return err
+	switch mode {
+	case "split":
+		pacUrl := fmt.Sprintf("http://%s:%d/pac?mode=split", ip, port)
+		exec.Command("reg", "add", regKey, "/v", "AutoConfigURL", "/t", "REG_SZ", "/d", pacUrl, "/f").Run()
+		exec.Command("reg", "add", regKey, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f").Run()
+	case "dual":
+		pacUrl := fmt.Sprintf("http://%s:%d/pac?mode=dual", ip, port)
+		exec.Command("reg", "add", regKey, "/v", "AutoConfigURL", "/t", "REG_SZ", "/d", pacUrl, "/f").Run()
+		exec.Command("reg", "add", regKey, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f").Run()
+	case "full":
+		addr := fmt.Sprintf("%s:%d", ip, port)
+		override := "<local>;localhost;127.*;10.*;192.168.*;172.16.*"
+		exec.Command("reg", "delete", regKey, "/v", "AutoConfigURL", "/f").Run()
+		exec.Command("reg", "add", regKey, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f").Run()
+		exec.Command("reg", "add", regKey, "/v", "ProxyServer", "/t", "REG_SZ", "/d", addr, "/f").Run()
+		exec.Command("reg", "add", regKey, "/v", "ProxyOverride", "/t", "REG_SZ", "/d", override, "/f").Run()
+	case "home":
+		exec.Command("reg", "delete", regKey, "/v", "AutoConfigURL", "/f").Run()
+		exec.Command("reg", "add", regKey, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f").Run()
 	}
-
-	cmd2 := exec.Command("reg", "add", regKey, "/v", "ProxyServer", "/t", "REG_SZ", "/d", addr, "/f")
-	if err := cmd2.Run(); err != nil {
-		return err
-	}
-
-	cmd3 := exec.Command("reg", "add", regKey, "/v", "ProxyOverride", "/t", "REG_SZ", "/d", override, "/f")
-	cmd3.Run()
 
 	notifyWindowsProxyChange()
 	return nil
 }
 
+func EnableSystemProxy(ip string, port int) error {
+	return ApplySystemMode(ip, port, "split")
+}
+
 func DisableSystemProxy() error {
 	regKey := `HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
-
-	cmd := exec.Command("reg", "add", regKey, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f")
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-
+	exec.Command("reg", "delete", regKey, "/v", "AutoConfigURL", "/f").Run()
+	exec.Command("reg", "add", regKey, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f").Run()
 	notifyWindowsProxyChange()
 	return nil
 }

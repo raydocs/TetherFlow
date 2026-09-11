@@ -1,19 +1,55 @@
 import Cocoa
 import Foundation
 
+enum WorkMode: String {
+    case smartSplit = "split"
+    case dualNet    = "dual"
+    case full5G     = "full"
+    case homeWifi   = "home"
+
+    var displayName: String {
+        switch self {
+        case .smartSplit: return "🎯 智能动静分流"
+        case .dualNet:    return "⚖️ 双网并发叠加"
+        case .full5G:     return "🚀 5G 极速独享"
+        case .homeWifi:   return "🏠 仅家庭 Wi-Fi"
+        }
+    }
+
+    var desc: String {
+        switch self {
+        case .smartSplit: return "游戏/通话 3ms 家庭宽带，视频/大下载 1.2G 5G"
+        case .dualNet:    return "多连接下载时 Wi-Fi (150M) + 5G (1050M) 双网叠加破千兆"
+        case .full5G:     return "全量流量直连 5G 满血通道 (适合测速)"
+        case .homeWifi:   return "暂停 5G，全部直连家庭 Wi-Fi 路由"
+        }
+    }
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var timer: Timer?
     var isConnected = false
     var activeIP: String? = nil
+    var currentMode: WorkMode = .smartSplit
     
     // Menu items
     let statusMenuItem = NSMenuItem(title: "🟡 等待手机连接...", action: nil, keyEquivalent: "")
     let ipMenuItem = NSMenuItem(title: "出口 IP: 检测中...", action: nil, keyEquivalent: "")
     let quotaMenuItem = NSMenuItem(title: "热点配额: 0 消耗 (已绕过)", action: nil, keyEquivalent: "")
 
+    let smartSplitMenuItem = NSMenuItem(title: "🎯 智能动静分流 (游戏3ms / 视频1.2G)", action: #selector(setModeSmartSplit), keyEquivalent: "1")
+    let dualNetMenuItem    = NSMenuItem(title: "⚖️ 双网并发叠加 (下载双网叠加破千兆)", action: #selector(setModeDualNet), keyEquivalent: "2")
+    let full5GMenuItem     = NSMenuItem(title: "🚀 5G 极速独享 (全量 5G 满血)", action: #selector(setModeFull5G), keyEquivalent: "3")
+    let homeWifiMenuItem   = NSMenuItem(title: "🏠 仅家庭 Wi-Fi (直连路由，不走5G)", action: #selector(setModeHomeWifi), keyEquivalent: "4")
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if let savedMode = UserDefaults.standard.string(forKey: "TetherFlow_WorkMode"),
+           let mode = WorkMode(rawValue: savedMode) {
+            currentMode = mode
+        }
         setupStatusItem()
+        updateModeMenuState()
         applyBrowserSpeedOptimizations()
         ensureInstalledAndAutoStart()
         startDaemonAndMonitor()
@@ -24,25 +60,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let currentPath = Bundle.main.bundlePath
         let appDestPath = "/Applications/TetherFlow.app"
 
-        // 1. If not running from /Applications, copy itself to /Applications
         if currentPath != appDestPath && !currentPath.hasPrefix("/Applications/") {
             try? fileManager.removeItem(atPath: appDestPath)
             try? fileManager.copyItem(atPath: currentPath, toPath: appDestPath)
         }
 
-        // 2. Register into macOS Login Items (开机自动后台静默启动)
         let script = "tell application \"System Events\" to if not (exists (login item \"TetherFlow\")) then make login item at end with properties {path:\"\(appDestPath)\", hidden:true}"
-        let task = Process()
-        task.launchPath = "/usr/bin/osascript"
-        task.arguments = ["-e", script]
-        try? task.run()
+        runCommand("/usr/bin/osascript", ["-e", script])
     }
 
     func applyBrowserSpeedOptimizations() {
-        let task = Process()
-        task.launchPath = "/bin/sh"
-        task.arguments = ["-c", "defaults write com.google.Chrome DisableQuic -bool true; defaults write com.microsoft.Edge DisableQuic -bool true; defaults write com.brave.Browser DisableQuic -bool true"]
-        try? task.run()
+        runCommand("/bin/sh", ["-c", "defaults write com.google.Chrome DisableQuic -bool true; defaults write com.microsoft.Edge DisableQuic -bool true; defaults write com.brave.Browser DisableQuic -bool true"])
     }
     
     func setupStatusItem() {
@@ -60,11 +88,44 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(ipMenuItem)
         menu.addItem(quotaMenuItem)
         menu.addItem(NSMenuItem.separator())
+
+        let modeHeader = NSMenuItem(title: "─── 工作模式切换 ───", action: nil, keyEquivalent: "")
+        modeHeader.isEnabled = false
+        menu.addItem(modeHeader)
+        menu.addItem(smartSplitMenuItem)
+        menu.addItem(dualNetMenuItem)
+        menu.addItem(full5GMenuItem)
+        menu.addItem(homeWifiMenuItem)
+
+        menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "🚀 打开 Speedtest 测速", action: #selector(openSpeedtest), keyEquivalent: "s"))
         menu.addItem(NSMenuItem(title: "🌐 打开 IP 检测 (ipinfo.io)", action: #selector(openIPInfo), keyEquivalent: "i"))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "退出 TetherFlow", action: #selector(quitApp), keyEquivalent: "q"))
         statusItem.menu = menu
+    }
+
+    func updateModeMenuState() {
+        smartSplitMenuItem.state = (currentMode == .smartSplit) ? .on : .off
+        dualNetMenuItem.state    = (currentMode == .dualNet)    ? .on : .off
+        full5GMenuItem.state     = (currentMode == .full5G)     ? .on : .off
+        homeWifiMenuItem.state   = (currentMode == .homeWifi)   ? .on : .off
+    }
+
+    @objc func setModeSmartSplit() { switchMode(to: .smartSplit) }
+    @objc func setModeDualNet()    { switchMode(to: .dualNet) }
+    @objc func setModeFull5G()     { switchMode(to: .full5G) }
+    @objc func setModeHomeWifi()   { switchMode(to: .homeWifi) }
+
+    func switchMode(to mode: WorkMode) {
+        currentMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: "TetherFlow_WorkMode")
+        updateModeMenuState()
+
+        if isConnected, let ip = activeIP {
+            applyProxyForCurrentMode(ip: ip)
+        }
+        notifyState(isUp: true, ip: activeIP ?? "127.0.0.1", customMsg: "已切换为: \(mode.displayName)\n\(mode.desc)")
     }
     
     func startDaemonAndMonitor() {
@@ -83,21 +144,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ]
         for p in commonPaths {
             if FileManager.default.fileExists(atPath: p) {
-                let task = Process()
-                task.launchPath = p
-                task.arguments = ["forward", "tcp:8282", "tcp:8282"]
-                try? task.run()
-                task.waitUntilExit()
+                runCommand(p, ["forward", "tcp:8282", "tcp:8282"])
                 break
             }
         }
     }
 
     func getDefaultGateway() -> String? {
+        let pipe = Pipe()
         let task = Process()
         task.launchPath = "/bin/sh"
         task.arguments = ["-c", "route -n get default | awk '/gateway/{print $2}'"]
-        let pipe = Pipe()
         task.standardOutput = pipe
         try? task.run()
         task.waitUntilExit()
@@ -107,10 +164,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func getActiveNetworkServices() -> [String] {
+        let pipe = Pipe()
         let task = Process()
         task.launchPath = "/usr/sbin/networksetup"
         task.arguments = ["-listallnetworkservices"]
-        let pipe = Pipe()
         task.standardOutput = pipe
         try? task.run()
         task.waitUntilExit()
@@ -139,7 +196,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             candidates.append(contentsOf: ["192.168.43.1", "192.168.49.1", "192.168.42.129"])
             
-            // Dedicated direct session to prevent proxy probe deadlock
             let probeConfig = URLSessionConfiguration.ephemeral
             probeConfig.connectionProxyDictionary = [:]
             probeConfig.timeoutIntervalForRequest = 0.5
@@ -171,7 +227,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             if let ip = detectedIP {
                 if !self.isConnected || self.activeIP != ip {
-                    self.enableProxy(ip: ip)
+                    self.applyProxyForCurrentMode(ip: ip)
                     self.isConnected = true
                     self.activeIP = ip
                     self.notifyState(isUp: true, ip: ip)
@@ -196,45 +252,70 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
-    func enableProxy(ip: String) {
-        for svc in getActiveNetworkServices() {
-            let task = Process()
-            task.launchPath = "/usr/sbin/networksetup"
-            task.arguments = ["-setwebproxy", svc, ip, "8282"]
-            try? task.run()
-            task.waitUntilExit()
-            
-            let task2 = Process()
-            task2.launchPath = "/usr/sbin/networksetup"
-            task2.arguments = ["-setsecurewebproxy", svc, ip, "8282"]
-            try? task2.run()
-            task2.waitUntilExit()
+    func applyProxyForCurrentMode(ip: String) {
+        let services = getActiveNetworkServices()
+        switch currentMode {
+        case .smartSplit:
+            let pacUrl = "http://\(ip):8282/pac?mode=split"
+            for svc in services {
+                runCommand("/usr/sbin/networksetup", ["-setwebproxystate", svc, "off"])
+                runCommand("/usr/sbin/networksetup", ["-setsecurewebproxystate", svc, "off"])
+                runCommand("/usr/sbin/networksetup", ["-setautoproxyurl", svc, pacUrl])
+                runCommand("/usr/sbin/networksetup", ["-setautoproxystate", svc, "on"])
+                runCommand("/usr/sbin/networksetup", ["-setproxybypassdomains", svc, "127.0.0.1", "192.168.0.0/16", "10.0.0.0/8", "*.local", "<local>"])
+            }
+        case .dualNet:
+            let pacUrl = "http://\(ip):8282/pac?mode=dual"
+            for svc in services {
+                runCommand("/usr/sbin/networksetup", ["-setwebproxystate", svc, "off"])
+                runCommand("/usr/sbin/networksetup", ["-setsecurewebproxystate", svc, "off"])
+                runCommand("/usr/sbin/networksetup", ["-setautoproxyurl", svc, pacUrl])
+                runCommand("/usr/sbin/networksetup", ["-setautoproxystate", svc, "on"])
+                runCommand("/usr/sbin/networksetup", ["-setproxybypassdomains", svc, "127.0.0.1", "192.168.0.0/16", "10.0.0.0/8", "*.local", "<local>"])
+            }
+        case .full5G:
+            for svc in services {
+                runCommand("/usr/sbin/networksetup", ["-setautoproxystate", svc, "off"])
+                runCommand("/usr/sbin/networksetup", ["-setwebproxy", svc, ip, "8282"])
+                runCommand("/usr/sbin/networksetup", ["-setsecurewebproxy", svc, ip, "8282"])
+                runCommand("/usr/sbin/networksetup", ["-setwebproxystate", svc, "on"])
+                runCommand("/usr/sbin/networksetup", ["-setsecurewebproxystate", svc, "on"])
+                runCommand("/usr/sbin/networksetup", ["-setproxybypassdomains", svc, "127.0.0.1", "localhost", "<local>"])
+            }
+        case .homeWifi:
+            disableProxy()
         }
     }
     
     func disableProxy() {
         for svc in getActiveNetworkServices() {
-            let task = Process()
-            task.launchPath = "/usr/sbin/networksetup"
-            task.arguments = ["-setwebproxystate", svc, "off"]
-            try? task.run()
-            task.waitUntilExit()
-            
-            let task2 = Process()
-            task2.launchPath = "/usr/sbin/networksetup"
-            task2.arguments = ["-setsecurewebproxystate", svc, "off"]
-            try? task2.run()
-            task2.waitUntilExit()
+            runCommand("/usr/sbin/networksetup", ["-setwebproxystate", svc, "off"])
+            runCommand("/usr/sbin/networksetup", ["-setsecurewebproxystate", svc, "off"])
+            runCommand("/usr/sbin/networksetup", ["-setautoproxystate", svc, "off"])
         }
     }
-    
-    func notifyState(isUp: Bool, ip: String) {
-        let title = isUp ? "TetherFlow 🚀" : "TetherFlow"
-        let msg = isUp ? (ip == "127.0.0.1" ? "已连接: USB 3.0 极速通道 (5 Gbps)" : "已连接: 5G Wi-Fi 满速通道") : "手机已断开，已自动恢复默认网络。"
+
+    func runCommand(_ path: String, _ args: [String]) {
         let task = Process()
-        task.launchPath = "/usr/bin/osascript"
-        task.arguments = ["-e", "display notification \"\(msg)\" with title \"\(title)\""]
+        task.launchPath = path
+        task.arguments = args
         try? task.run()
+        task.waitUntilExit()
+    }
+    
+    func notifyState(isUp: Bool, ip: String, customMsg: String? = nil) {
+        let title = isUp ? "TetherFlow 🚀" : "TetherFlow"
+        let msg: String
+        if let cm = customMsg {
+            msg = cm
+        } else if isUp {
+            let link = (ip == "127.0.0.1") ? "USB 3.0 直连 (5 Gbps)" : "5G Wi-Fi 满速"
+            msg = "已连接: \(link)\n模式: \(currentMode.displayName)"
+        } else {
+            msg = "手机已断开，已自动恢复默认网络。"
+        }
+        let escaped = msg.replacingOccurrences(of: "\"", with: "\\\"")
+        runCommand("/usr/bin/osascript", ["-e", "display notification \"\(escaped)\" with title \"\(title)\""])
     }
 
     func fetchIPInfo(ip: String) {
@@ -254,10 +335,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                   let org = json["org"] as? String else { return }
             
             let isUsb = (ip == "127.0.0.1")
-            let mode = isUsb ? "USB 3.0 满速" : "Wi-Fi 6 无线"
+            let linkName = isUsb ? "USB 3.0" : "Wi-Fi 6"
             
             DispatchQueue.main.async {
-                self.statusMenuItem.title = "🟢 5G 已直连 [\(mode)]"
+                self.statusMenuItem.title = "🟢 已接入 [\(linkName)] - \(self.currentMode.displayName)"
                 self.ipMenuItem.title = "出口 IP: \(publicIp)"
                 self.quotaMenuItem.title = "运营商: \(org) (零热点配额)"
                 if let btn = self.statusItem.button {

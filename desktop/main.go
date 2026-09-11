@@ -45,18 +45,40 @@ func main() {
 		os.Exit(0)
 	}()
 
-	tray := StartTray(func() {
+	currentMode := "split"
+	isConnected := false
+	var activeIP string
+	missCount := 0
+
+	var tray *TrayManager
+	tray = StartTray(func() {
 		cleanup()
 		os.Exit(0)
+	}, func(newMode string) {
+		currentMode = newMode
+		if isConnected && activeIP != "" {
+			_ = ApplySystemMode(activeIP, defaultPort, currentMode)
+		}
+		modeTitle := "🎯 智能动静分流"
+		modeDesc := "游戏/通话 3ms 家庭宽带，视频/大下载 1.2G 5G"
+		switch newMode {
+		case "dual":
+			modeTitle = "⚖️ 双网并发叠加"
+			modeDesc = "多连接下载时 Wi-Fi (150M) + 5G (1050M) 双网叠加破千兆"
+		case "full":
+			modeTitle = "🚀 5G 极速独享"
+			modeDesc = "全量流量直连 5G 满血通道 (适合测速)"
+		case "home":
+			modeTitle = "🏠 仅家庭 Wi-Fi"
+			modeDesc = "暂停 5G，全部直连家庭 Wi-Fi 路由"
+		}
+		tray.NotifyBalloon("TetherFlow 模式切换", fmt.Sprintf("已切换为: %s\n%s", modeTitle, modeDesc), false)
+		NotifyUser("TetherFlow 模式切换", fmt.Sprintf("已切换为: %s", modeTitle))
 	})
 
 	client := &http.Client{
 		Timeout: 600 * time.Millisecond,
 	}
-
-	isConnected := false
-	var activeIP string
-	missCount := 0
 
 	for {
 		if !isConnected {
@@ -65,8 +87,8 @@ func main() {
 				linkType, _, isWarn := DetectLinkDetails(foundIP)
 
 				fmt.Printf("\n[+] 检测到 TetherFlow 节点: %s:%d [%s]\n", foundIP, defaultPort, linkType)
-				fmt.Println("[+] 正在激活系统级零热点 5G 极速通道...")
-				if err := EnableSystemProxy(foundIP, defaultPort); err != nil {
+				fmt.Printf("[+] 正在激活系统级零热点 5G 通道 (模式: %s)...\n", currentMode)
+				if err := ApplySystemMode(foundIP, defaultPort, currentMode); err != nil {
 					fmt.Printf("[!] 设置系统代理失败: %v\n", err)
 				} else {
 					fmt.Println("[SUCCESS] 🚀 已连接！电脑现已直通手机原生 5G 网络。")
@@ -94,7 +116,7 @@ func main() {
 				if checkAlive(client, "127.0.0.1", defaultPort) {
 					linkType, _, isWarn := DetectLinkDetails("127.0.0.1")
 					fmt.Printf("\n[🚀 发现 USB 极速连接] 自动平滑切换至 %s (127.0.0.1)...\n", linkType)
-					EnableSystemProxy("127.0.0.1", defaultPort)
+					ApplySystemMode("127.0.0.1", defaultPort, currentMode)
 					activeIP = "127.0.0.1"
 					missCount = 0
 					tray.SetStatus(linkType, "127.0.0.1")

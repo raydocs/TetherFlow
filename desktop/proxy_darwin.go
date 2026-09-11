@@ -29,17 +29,44 @@ func getActiveNetworkServices() []string {
 	return services
 }
 
-func EnableSystemProxy(ip string, port int) error {
+func ApplySystemMode(ip string, port int, mode string) error {
 	portStr := strconv.Itoa(port)
 	services := getActiveNetworkServices()
 
 	for _, svc := range services {
-		exec.Command("networksetup", "-setwebproxy", svc, ip, portStr).Run()
-		exec.Command("networksetup", "-setsecurewebproxy", svc, ip, portStr).Run()
-		exec.Command("networksetup", "-setwebproxystate", svc, "on").Run()
-		exec.Command("networksetup", "-setsecurewebproxystate", svc, "on").Run()
+		switch mode {
+		case "split":
+			pacUrl := fmt.Sprintf("http://%s:%d/pac?mode=split", ip, port)
+			exec.Command("networksetup", "-setwebproxystate", svc, "off").Run()
+			exec.Command("networksetup", "-setsecurewebproxystate", svc, "off").Run()
+			exec.Command("networksetup", "-setautoproxyurl", svc, pacUrl).Run()
+			exec.Command("networksetup", "-setautoproxystate", svc, "on").Run()
+			exec.Command("networksetup", "-setproxybypassdomains", svc, "127.0.0.1", "192.168.0.0/16", "10.0.0.0/8", "*.local", "<local>").Run()
+		case "dual":
+			pacUrl := fmt.Sprintf("http://%s:%d/pac?mode=dual", ip, port)
+			exec.Command("networksetup", "-setwebproxystate", svc, "off").Run()
+			exec.Command("networksetup", "-setsecurewebproxystate", svc, "off").Run()
+			exec.Command("networksetup", "-setautoproxyurl", svc, pacUrl).Run()
+			exec.Command("networksetup", "-setautoproxystate", svc, "on").Run()
+			exec.Command("networksetup", "-setproxybypassdomains", svc, "127.0.0.1", "192.168.0.0/16", "10.0.0.0/8", "*.local", "<local>").Run()
+		case "full":
+			exec.Command("networksetup", "-setautoproxystate", svc, "off").Run()
+			exec.Command("networksetup", "-setwebproxy", svc, ip, portStr).Run()
+			exec.Command("networksetup", "-setsecurewebproxy", svc, ip, portStr).Run()
+			exec.Command("networksetup", "-setwebproxystate", svc, "on").Run()
+			exec.Command("networksetup", "-setsecurewebproxystate", svc, "on").Run()
+			exec.Command("networksetup", "-setproxybypassdomains", svc, "127.0.0.1", "localhost", "<local>").Run()
+		case "home":
+			exec.Command("networksetup", "-setwebproxystate", svc, "off").Run()
+			exec.Command("networksetup", "-setsecurewebproxystate", svc, "off").Run()
+			exec.Command("networksetup", "-setautoproxystate", svc, "off").Run()
+		}
 	}
 	return nil
+}
+
+func EnableSystemProxy(ip string, port int) error {
+	return ApplySystemMode(ip, port, "split")
 }
 
 func DisableSystemProxy() error {
@@ -47,6 +74,7 @@ func DisableSystemProxy() error {
 	for _, svc := range services {
 		exec.Command("networksetup", "-setwebproxystate", svc, "off").Run()
 		exec.Command("networksetup", "-setsecurewebproxystate", svc, "off").Run()
+		exec.Command("networksetup", "-setautoproxystate", svc, "off").Run()
 	}
 	return nil
 }

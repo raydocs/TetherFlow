@@ -65,6 +65,11 @@ const (
 	ID_SPEEDTEST = 1003
 	ID_IPINFO    = 1004
 	ID_EXIT      = 1005
+
+	ID_MODE_SPLIT = 1010
+	ID_MODE_DUAL  = 1011
+	ID_MODE_FULL  = 1012
+	ID_MODE_HOME  = 1013
 )
 
 type POINT struct {
@@ -114,12 +119,14 @@ type NOTIFYICONDATAW struct {
 }
 
 type TrayManager struct {
-	hWnd       uintptr
-	nid        NOTIFYICONDATAW
-	mu         sync.Mutex
-	statusText string
-	ipText     string
-	onExit     func()
+	hWnd         uintptr
+	nid          NOTIFYICONDATAW
+	mu           sync.Mutex
+	statusText   string
+	ipText       string
+	currentMode  string
+	onModeChange func(string)
+	onExit       func()
 }
 
 var globalTray *TrayManager
@@ -134,6 +141,22 @@ func wndProc(hWnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 		}
 	case WM_COMMAND:
 		switch wParam {
+		case ID_MODE_SPLIT:
+			if globalTray != nil {
+				globalTray.SelectMode("split")
+			}
+		case ID_MODE_DUAL:
+			if globalTray != nil {
+				globalTray.SelectMode("dual")
+			}
+		case ID_MODE_FULL:
+			if globalTray != nil {
+				globalTray.SelectMode("full")
+			}
+		case ID_MODE_HOME:
+			if globalTray != nil {
+				globalTray.SelectMode("home")
+			}
 		case ID_SPEEDTEST:
 			exec.Command("cmd", "/c", "start", "https://www.speedtest.net").Start()
 		case ID_IPINFO:
@@ -153,10 +176,12 @@ func wndProc(hWnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
 	return 0
 }
 
-func StartTray(onExit func()) *TrayManager {
+func StartTray(onExit func(), onModeChange func(string)) *TrayManager {
 	tm := &TrayManager{
-		statusText: "TetherFlow: 等待手机连接...",
-		onExit:     onExit,
+		statusText:   "TetherFlow: 等待手机连接...",
+		currentMode:  "split",
+		onModeChange: onModeChange,
+		onExit:       onExit,
 	}
 	globalTray = tm
 
@@ -241,6 +266,17 @@ func (tm *TrayManager) NotifyBalloon(title, info string, isWarn bool) {
 	shellNotifyIcon.Call(NIM_MODIFY, uintptr(unsafe.Pointer(&tm.nid)))
 }
 
+func (tm *TrayManager) SelectMode(mode string) {
+	tm.mu.Lock()
+	tm.currentMode = mode
+	cb := tm.onModeChange
+	tm.mu.Unlock()
+
+	if cb != nil {
+		cb(mode)
+	}
+}
+
 func (tm *TrayManager) showMenu() {
 	hMenu, _, _ := createPopupMenu.Call()
 	if hMenu == 0 {
@@ -251,12 +287,37 @@ func (tm *TrayManager) showMenu() {
 	tm.mu.Lock()
 	st := tm.statusText
 	ip := tm.ipText
+	mode := tm.currentMode
 	tm.mu.Unlock()
 
-	appendMenu.Call(hMenu, MF_STRING|MF_GRAYED, ID_STATUS, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("● 模式: "+st))))
+	appendMenu.Call(hMenu, MF_STRING|MF_GRAYED, ID_STATUS, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("● 连接: "+st))))
 	if ip != "" {
 		appendMenu.Call(hMenu, MF_STRING|MF_GRAYED, ID_IP, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("● 出口: "+ip+" (零热点配额)"))))
 	}
+	appendMenu.Call(hMenu, MF_SEPARATOR, 0, 0)
+
+	splitPrefix := "  "
+	dualPrefix := "  "
+	fullPrefix := "  "
+	homePrefix := "  "
+	switch mode {
+	case "split":
+		splitPrefix = "✔ "
+	case "dual":
+		dualPrefix = "✔ "
+	case "full":
+		fullPrefix = "✔ "
+	case "home":
+		homePrefix = "✔ "
+	default:
+		splitPrefix = "✔ "
+	}
+
+	appendMenu.Call(hMenu, MF_STRING, ID_MODE_SPLIT, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(splitPrefix+"🎯 智能动静分流 (游戏3ms/视频1.2G)"))))
+	appendMenu.Call(hMenu, MF_STRING, ID_MODE_DUAL, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(dualPrefix+"⚖️ 双网并发叠加 (下载双网叠加破千兆)"))))
+	appendMenu.Call(hMenu, MF_STRING, ID_MODE_FULL, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(fullPrefix+"🚀 5G 极速独享 (全量 5G 满血)"))))
+	appendMenu.Call(hMenu, MF_STRING, ID_MODE_HOME, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(homePrefix+"🏠 仅家庭 Wi-Fi (直连路由，不走5G)"))))
+
 	appendMenu.Call(hMenu, MF_SEPARATOR, 0, 0)
 	appendMenu.Call(hMenu, MF_STRING, ID_SPEEDTEST, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("🚀 打开 Speedtest 测速"))))
 	appendMenu.Call(hMenu, MF_STRING, ID_IPINFO, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("🌐 打开 IP 检测 (ipinfo.io)"))))
