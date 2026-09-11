@@ -57,6 +57,7 @@ func main() {
 				} else {
 					fmt.Println("[SUCCESS] 🚀 Connected! Computer is now using phone 5G directly.")
 					fmt.Println("[INFO] Hotspot quota bypassed. Zero configuration needed.")
+					NotifyUser("TetherFlow 🚀", "已接入三星 5G 满速网络！(零热点配额消耗)")
 					isConnected = true
 					activeIP = foundIP
 					missCount = 0
@@ -72,6 +73,7 @@ func main() {
 					fmt.Printf("\n[-] Phone disconnected (%s).\n", activeIP)
 					fmt.Println("[-] Restoring standard computer network...")
 					DisableSystemProxy()
+					NotifyUser("TetherFlow", "手机已断开，已自动恢复默认网络。")
 					isConnected = false
 					activeIP = ""
 					missCount = 0

@@ -57,3 +57,7 @@ func DisableSystemProxy() error {
 	notifyWindowsProxyChange()
 	return nil
 }
+
+func NotifyUser(title, message string) {
+	// Optional Windows toast or console notification
+}

@@ -50,3 +50,8 @@ func DisableSystemProxy() error {
 	}
 	return nil
 }
+
+func NotifyUser(title, message string) {
+	script := strings.ReplaceAll(message, `"`, `\"`)
+	exec.Command("osascript", "-e", `display notification "`+script+`" with title "`+title+`"`).Run()
+}
