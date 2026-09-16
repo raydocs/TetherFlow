@@ -6,15 +6,16 @@ function Assert($Condition, [string]$Message) { if (!$Condition) { throw $Messag
 # Weighted egress expansion (default 4 phone : 1 home).
 $cfg = New-SteamDualConfig 'Home test' 'USB test' '10.81.25.145' 8282
 Assert ($cfg.tun.enable -eq $true) 'Production must intercept Steam with TUN.'
-Assert ($cfg.proxies.Count -eq 5) 'Default weights must expand to five egress nodes.'
+Assert ($cfg.proxies.Count -eq 6) 'Default weights must expand to six egress nodes.'
 Assert ($cfg.proxies[0]['name'] -eq 'PHONE-8282' -and $cfg.proxies[0].type -eq 'http' -and $cfg.proxies[0].port -eq 8282) 'Phone must use the HTTP proxy.'
 Assert ($cfg.proxies[0]['interface-name'] -eq 'USB test') 'Phone must bind USB.'
 Assert ($cfg.proxies[3]['name'] -eq 'PHONE-8282-r4' -and $cfg.proxies[3].server -eq '10.81.25.145' -and $cfg.proxies[3]['interface-name'] -eq 'USB test') 'Phone replicas must reuse the endpoint and bind USB.'
-Assert ($cfg.proxies[4]['name'] -eq 'HOME-WIFI' -and $cfg.proxies[4].type -eq 'direct' -and $cfg.proxies[4]['interface-name'] -eq 'Home test') 'Home must bind an interface.'
+Assert ($cfg.proxies[4]['name'] -eq 'PHONE-8282-r5' -and $cfg.proxies[4].server -eq '10.81.25.145') 'Five phone replicas must exist by default.'
+Assert ($cfg.proxies[5]['name'] -eq 'HOME-WIFI' -and $cfg.proxies[5].type -eq 'direct' -and $cfg.proxies[5]['interface-name'] -eq 'Home test') 'Home must bind an interface.'
 Assert ($cfg.rules[-1] -eq 'MATCH,HOME-WIFI') 'No unbound DIRECT fallback is permitted.'
 Assert ($cfg['proxy-groups'][0].strategy -eq 'round-robin') 'Connections must be distributed.'
-Assert ($cfg['proxy-groups'][0].proxies.Count -eq 5) 'The balance group must contain every replica.'
-Assert ($cfg['proxy-groups'][0].proxies[0] -eq 'PHONE-8282' -and $cfg['proxy-groups'][0].proxies[4] -eq 'HOME-WIFI') 'Phone replicas must precede home in the rotation.'
+Assert ($cfg['proxy-groups'][0].proxies.Count -eq 6) 'The balance group must contain every replica.'
+Assert ($cfg['proxy-groups'][0].proxies[0] -eq 'PHONE-8282' -and $cfg['proxy-groups'][0].proxies[5] -eq 'HOME-WIFI') 'Phone replicas must precede home in the rotation.'
 Assert ($cfg.rules[0].Contains('PROCESS-NAME,steam.exe') -and $cfg.rules[0].Contains('NETWORK,TCP')) 'Only Steam HTTP(S) TCP should be balanced.'
 $testCfg = New-SteamDualConfig 'Home test' 'USB test' '10.81.25.145' 8282 -ProxyTest
 Assert (!$testCfg.tun.enable) 'Proxy tests must not modify routing.'

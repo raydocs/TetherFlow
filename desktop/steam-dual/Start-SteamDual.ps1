@@ -4,7 +4,7 @@ param(
     [string]$PhoneInterface = '',
     [string]$PhoneAddress = '',
     [ValidateRange(1,65535)][int]$PhonePort = 8282,
-    [int]$PhoneWeight = 4,
+    [int]$PhoneWeight = 5,
     [int]$HomeWeight = 1,
     [string[]]$ProcessNames = @('steam.exe'),
     [switch]$NoAdbTunnel,

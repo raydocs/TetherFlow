@@ -13,10 +13,11 @@ bandwidth scheduling. Other apps and Steam's non-HTTP(S) traffic use home Wi-Fi.
 ## Weighted balancing and the ADB tunnel
 
 Egress nodes are replicated to approximate a bandwidth ratio: by default the
-phone path gets **4 replicas** and home Wi-Fi **1** (`-PhoneWeight 4
--HomeWeight 1`), because on the reference setup the phone path sustains
-~850-865 Mbps across 4+ streams while home Wi-Fi sustains ~200 Mbps. Tune the
-ratio after benchmarking your own links; the sum of both weights is capped at 16.
+phone path gets **5 replicas** and home Wi-Fi **1** (`-PhoneWeight 5
+-HomeWeight 1`), because on the reference setup the ADB-tunnel phone path
+sustains ~1010 Mbps across 16 streams (864 Mbps over RNDIS) while home Wi-Fi
+sustains ~200 Mbps. Tune the ratio after benchmarking your own links; the sum
+of both weights is capped at 16.
 
 If the phone is ADB-authorized (Developer options -> USB debugging, accept the
 "Allow USB debugging" dialog once), the scripts automatically install Google
@@ -121,9 +122,14 @@ Wi-Fi (cachefly 100 MB test file, no disk writes):
 
 - Phone HTTP proxy via USB tethering (RNDIS): 467 Mbps single stream,
   792 Mbps at 4 streams, 844-864 Mbps at 8-16 streams.
-- Full engine chain (`ProxyTest` mode, mihomo, 4:1 weighted, ADB tunnel phone
+- Phone HTTP proxy via the ADB USB tunnel: **1010 Mbps at 16 streams**.
+- Full engine chain (`ProxyTest` mode, mihomo, weighted, ADB tunnel phone
   leg + Wi-Fi home leg): **1046 Mbps at 8 streams, 1054 Mbps at 16 streams** -
   the practical sum of both links, so the engine is not the bottleneck.
+- Elevated live Steam download peaked at **776 Mbps** in Steam's own
+  content_log (above the 200 Mbps home link, proving aggregation) before the
+  game SSD throttled it: the library NVMe ran at 0% idle while moving only
+  ~40 MB/s. Disk speed, not the network, capped that download.
 - Generated production configuration accepted by mihomo v1.19.31.
 - Configuration/guard regression checks passed under PowerShell 7.6.6.
 - Elevated TUN adapter reached `Up`; the firewall guard installed successfully.

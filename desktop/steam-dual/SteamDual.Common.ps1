@@ -16,7 +16,7 @@ function Install-SteamDualCore([string]$Directory) {
     return $target
 }
 
-function New-SteamDualConfig([string]$HomeInterface, [string]$PhoneInterface, [string]$PhoneAddress, [int]$PhonePort, [int]$PhoneWeight = 4, [int]$HomeWeight = 1, [string[]]$ProcessNames = @('steam.exe'), [switch]$ProxyTest) {
+function New-SteamDualConfig([string]$HomeInterface, [string]$PhoneInterface, [string]$PhoneAddress, [int]$PhonePort, [int]$PhoneWeight = 5, [int]$HomeWeight = 1, [string[]]$ProcessNames = @('steam.exe'), [switch]$ProxyTest) {
     if ($PhoneWeight -lt 1 -or $HomeWeight -lt 1 -or ($PhoneWeight + $HomeWeight) -gt 16) {
         throw 'PhoneWeight and HomeWeight must be >= 1 and sum to at most 16.'
     }
