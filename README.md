@@ -1,5 +1,12 @@
 # TetherFlow 🌊
 
+> **Windows Steam downloads:** the legacy tray's PAC modes do not reliably
+> capture Steam downloads or bond networks. The new opt-in
+> [Steam dual-network mode](desktop/steam-dual/README.md) uses a TUN engine,
+> Wi-Fi-bound direct connections, a phone HTTP proxy on 8282, and a persistent
+> USB leak guard. It requires Administrator privileges and connection-level
+> verification; it is not single-stream bonding or a guarantee of carrier billing.
+
 > **Next-Gen Zero-Loss No-Root Tethering & 5G Bypass Gateway**  
 > Designed for Android 16 (Samsung One UI 8.5+ & modern Android devices) with zero-touch Desktop Companions for **Windows & macOS**.
 
