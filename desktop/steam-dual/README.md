@@ -65,6 +65,28 @@ The old PAC-based companion can be exited before starting this mode.
 `Launch-SteamDual.ps1` is the optional UAC/background launcher; startup errors
 are recorded in `%LOCALAPPDATA%\TetherFlow\SteamDual\launcher.log`.
 
+## Automatic mode (customer deployment)
+
+The manual launch above is for setup and debugging. For end users, install the
+watchdog once from an elevated PowerShell - a single UAC confirmation, no
+PowerShell knowledge afterwards:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-SteamDualAuto.ps1
+```
+
+This registers a hidden scheduled task (logon trigger, highest privileges,
+restart on failure) running `SteamDual.Watchdog.ps1`, which every 20 seconds:
+starts the core when the TetherFlow phone is attached (and Steam dual-network
+becomes active), and stops it when the phone leaves (Steam falls back to plain
+Wi-Fi). First run on a new machine still downloads the pinned mihomo core, and
+prefers the ADB tunnel when the phone is authorized. Logs:
+`%LOCALAPPDATA%\TetherFlow\SteamDual\watchdog.log`, `core-out.log`, `core-err.log`.
+`Start-SteamDual.ps1` is idempotent, so re-runs and task restarts are safe.
+
+Remove automatic mode with `Uninstall-SteamDualAuto.ps1` (elevated). The USB
+leak guard persists until `Remove-UsbGuard.ps1` is run explicitly.
+
 ## Phone path and persistent leak guard
 
 The phone node is an HTTP proxy bound to the USB interface. It never falls back

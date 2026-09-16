@@ -19,6 +19,13 @@ Set-StrictMode -Version Latest
 # -File callers pass "a.exe,b.exe" as one string; normalize to a real array.
 $ProcessNames = @($ProcessNames | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 
+# Idempotent for the watchdog/auto-restart path: an already-running core is a
+# no-op success, not an error.
+if (Get-Process tetherflow-steam-core -ErrorAction SilentlyContinue) {
+    Write-Output 'SteamDual core is already running; nothing to do.'
+    return
+}
+
 $stateDir = Join-Path $env:LOCALAPPDATA 'TetherFlow\SteamDual'
 New-Item -ItemType Directory -Force $stateDir | Out-Null
 $core = Install-SteamDualCore $stateDir

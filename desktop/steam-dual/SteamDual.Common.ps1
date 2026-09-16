@@ -169,8 +169,7 @@ function Enable-SteamDualGuard([string]$PhoneInterface, [string]$PhoneAddress) {
     }
 }
 
-function Prefer-SteamDualHomeRoute([string]$HomeInterface, [string]$PhoneInterface, [string]$StateDirectory) {
-    $homeIP = Get-NetIPInterface -InterfaceAlias $HomeInterface -AddressFamily IPv4
+function Prefer-SteamDualHomeRoute([string]$HomeInterface, [string]$PhoneInterface, [string]$StateDirectory) {    $homeIP = Get-NetIPInterface -InterfaceAlias $HomeInterface -AddressFamily IPv4
     $phoneIP = Get-NetIPInterface -InterfaceAlias $PhoneInterface -AddressFamily IPv4
     $homeRoutes = @(Get-NetRoute -InterfaceAlias $HomeInterface -DestinationPrefix '0.0.0.0/0')
     if (!$homeRoutes.Count) { throw 'Home interface has no default route.' }
@@ -189,3 +188,24 @@ function Prefer-SteamDualHomeRoute([string]$HomeInterface, [string]$PhoneInterfa
 }
 
 
+
+function Test-SteamDualPhone {
+    # True when the TetherFlow proxy is reachable right now: ADB tunnel first,
+    # then the USB-tethering gateway. Throws nothing; absence is a plain false.
+    try { Enable-AdbTunnel 8282 8282 | Out-Null; return $true } catch {}
+    $phones = @(Get-NetAdapter | Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -match 'RNDIS|Remote NDIS|USB.*Ethernet|NCM' })
+    foreach ($p in $phones) {
+        $gateways = @(Get-NetRoute -InterfaceIndex $p.ifIndex -DestinationPrefix '0.0.0.0/0' | Select-Object -ExpandProperty NextHop -Unique)
+        foreach ($gw in $gateways) {
+            try {
+                $probe = [System.Net.WebRequest]::Create("http://${gw}:8282/pac")
+                $probe.Proxy = $null
+                $probe.Timeout = 2000
+                $response = $probe.GetResponse()
+                $response.Close()
+                return $true
+            } catch {}
+        }
+    }
+    return $false
+}
