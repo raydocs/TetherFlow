@@ -10,6 +10,29 @@ promise the sum of both link speeds: CDN behavior, disk unpacking, phone CPU and
 the number of active connections all matter. Round-robin is not adaptive
 bandwidth scheduling. Other apps and Steam's non-HTTP(S) traffic use home Wi-Fi.
 
+## Weighted balancing and the ADB tunnel
+
+Egress nodes are replicated to approximate a bandwidth ratio: by default the
+phone path gets **4 replicas** and home Wi-Fi **1** (`-PhoneWeight 4
+-HomeWeight 1`), because on the reference setup the phone path sustains
+~850-865 Mbps across 4+ streams while home Wi-Fi sustains ~200 Mbps. Tune the
+ratio after benchmarking your own links; the sum of both weights is capped at 16.
+
+If the phone is ADB-authorized (Developer options -> USB debugging, accept the
+"Allow USB debugging" dialog once), the scripts automatically install Google
+platform-tools and switch the phone leg to the loopback ADB tunnel
+(`127.0.0.1:8282`). The tunnel bypasses the RNDIS per-flow cap and, in this
+mode, the USB-tethering adapter is blocked entirely by the firewall guard (the
+phone is reached over the ADB USB interface, not over IP tethering). Pass
+`-NoAdbTunnel` to stay on the USB-tethering gateway path; USB tethering can
+even stay disabled in tunnel mode.
+
+To capture other big downloaders besides Steam, pass process names:
+
+```powershell
+.\Start-SteamDual.ps1 -ProcessNames steam.exe,steamwebhelper.exe
+```
+
 ## Start
 
 1. Connect Windows to home Wi-Fi. Keep Android USB tethering enabled, and start
@@ -93,8 +116,14 @@ an elevated Steam download test, phone-disconnect test and USB-leak test.
 
 ## Verified on 2026-09-16
 
-On Windows with a Samsung USB RNDIS adapter and home Wi-Fi:
+On Windows with a Samsung USB RNDIS adapter, an ADB-authorized phone and home
+Wi-Fi (cachefly 100 MB test file, no disk writes):
 
+- Phone HTTP proxy via USB tethering (RNDIS): 467 Mbps single stream,
+  792 Mbps at 4 streams, 844-864 Mbps at 8-16 streams.
+- Full engine chain (`ProxyTest` mode, mihomo, 4:1 weighted, ADB tunnel phone
+  leg + Wi-Fi home leg): **1046 Mbps at 8 streams, 1054 Mbps at 16 streams** -
+  the practical sum of both links, so the engine is not the bottleneck.
 - Generated production configuration accepted by mihomo v1.19.31.
 - Configuration/guard regression checks passed under PowerShell 7.6.6.
 - Elevated TUN adapter reached `Up`; the firewall guard installed successfully.
@@ -105,6 +134,13 @@ On Windows with a Samsung USB RNDIS adapter and home Wi-Fi:
   the phone's port 8282, with no public-IP USB connections.
 - The pinned-socket guard test passed (phone reachable, direct USB public TCP
   blocked). The home route cost was 35 and the saved/raised USB metric was 135.
+
+The morning's slow Steam update (17 MB/s) was diagnosed as disk-bound unpacking
+(C: at 100% busy, queue 15) combined with the old 1:1 split, not an engine
+limit; the 4:1 weighting matches the measured link capacities. sing-box was
+evaluated as an alternative core but official builds have no load-balance
+outbound group (selector/urltest only), which makes per-connection dual-link
+aggregation impossible without community forks.
 
 These checks demonstrate simultaneous download paths, not a controlled speedup
 benchmark or exhaustive carrier/driver compatibility. Physical unplug/replug,

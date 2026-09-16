@@ -16,12 +16,39 @@ function Install-SteamDualCore([string]$Directory) {
     return $target
 }
 
-function New-SteamDualConfig([string]$HomeInterface, [string]$PhoneInterface, [string]$PhoneAddress, [int]$PhonePort, [switch]$ProxyTest) {
+function New-SteamDualConfig([string]$HomeInterface, [string]$PhoneInterface, [string]$PhoneAddress, [int]$PhonePort, [int]$PhoneWeight = 4, [int]$HomeWeight = 1, [string[]]$ProcessNames = @('steam.exe'), [switch]$ProxyTest) {
+    if ($PhoneWeight -lt 1 -or $HomeWeight -lt 1 -or ($PhoneWeight + $HomeWeight) -gt 16) {
+        throw 'PhoneWeight and HomeWeight must be >= 1 and sum to at most 16.'
+    }
+    if (!$ProcessNames -or $ProcessNames.Count -lt 1 -or $ProcessNames.Count -gt 8) {
+        throw 'ProcessNames must contain between 1 and 8 executable names.'
+    }
+    foreach ($p in $ProcessNames) {
+        if ($p -notmatch '^[a-z0-9_. -]+$' -or $p.EndsWith('.exe') -eq $false) {
+            throw "ProcessNames entries must be lowercase .exe names: $p"
+        }
+    }
+    $procMatch = if ($ProcessNames.Count -eq 1) { "(PROCESS-NAME,$($ProcessNames[0]))" }
+                 else { '(OR,' + (($ProcessNames | ForEach-Object { "(PROCESS-NAME,$_)" }) -join ',') + ')' }
+    # Round-robin hands every replica an equal share of new connections, so the
+    # replica ratio approximates the intended bandwidth split between paths.
+    $isLoopback = [System.Net.IPAddress]::IsLoopback([System.Net.IPAddress]::Parse($PhoneAddress))
     $rules = @(
-        'AND,((PROCESS-NAME,steam.exe),(NETWORK,TCP),(OR,((DST-PORT,80),(DST-PORT,443)))),STEAM-DUAL',
+        "AND,($procMatch,(NETWORK,TCP),(OR,((DST-PORT,80),(DST-PORT,443)))),STEAM-DUAL",
         'MATCH,HOME-WIFI'
     )
     if ($ProxyTest) { $rules = @('MATCH,STEAM-DUAL') }
+    $egress = @()
+    for ($i = 1; $i -le $PhoneWeight; $i++) {
+        $name = if ($i -eq 1) { 'PHONE-8282' } else { "PHONE-8282-r$i" }
+        $node = [ordered]@{ name=$name; type='http'; server=$PhoneAddress; port=$PhonePort }
+        if (!$isLoopback) { $node['interface-name'] = $PhoneInterface }
+        $egress += $node
+    }
+    for ($i = 1; $i -le $HomeWeight; $i++) {
+        $name = if ($i -eq 1) { 'HOME-WIFI' } else { "HOME-WIFI-r$i" }
+        $egress += @{ name=$name; type='direct'; 'interface-name'=$HomeInterface }
+    }
     return [ordered]@{
         'mixed-port' = 17890
         'allow-lan' = $false
@@ -52,32 +79,85 @@ function New-SteamDualConfig([string]$HomeInterface, [string]$PhoneInterface, [s
             'default-nameserver' = @('1.1.1.1','8.8.8.8')
             nameserver = @('https://1.1.1.1/dns-query','https://8.8.8.8/dns-query')
         }
-        proxies = @(
-            @{ name='HOME-WIFI'; type='direct'; 'interface-name'=$HomeInterface },
-            @{ name='PHONE-8282'; type='http'; server=$PhoneAddress; port=$PhonePort; 'interface-name'=$PhoneInterface }
-        )
+        proxies = $egress
         'proxy-groups' = @(@{
             name='STEAM-DUAL'; type='load-balance'; strategy='round-robin'
-            proxies=@('HOME-WIFI','PHONE-8282')
-            url='https://www.gstatic.com/generate_204'; interval=30; lazy=$false
+            proxies=@($egress | ForEach-Object { $_.name })
+            url='https://www.gstatic.com/generate_204'; interval=60; lazy=$false
         })
         rules = $rules
     }
 }
 
+function Find-Adb {
+    $candidates = @()
+    if ($env:ADB_PATH) { $candidates += $env:ADB_PATH }
+    if ($env:LOCALAPPDATA) { $candidates += (Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe') }
+    if ($env:USERPROFILE) { $candidates += (Join-Path $env:USERPROFILE 'platform-tools\adb.exe') }
+    $candidates += 'C:\platform-tools\adb.exe'
+    $cmd = Get-Command adb.exe -ErrorAction SilentlyContinue
+    if ($cmd) { $candidates += $cmd.Source }
+    foreach ($c in $candidates) { if ($c -and (Test-Path $c)) { return $c } }
+    return ''
+}
+
+function Install-Adb {
+    $adb = Find-Adb
+    if ($adb) { return $adb }
+    # Official Google platform-tools bundle; same trust model as the mihomo fetch.
+    $sdkDir = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+    New-Item -ItemType Directory -Force $sdkDir | Out-Null
+    $archive = Join-Path $sdkDir 'platform-tools.zip'
+    Invoke-WebRequest 'https://dl.google.com/android/repository/platform-tools-latest-windows.zip' -OutFile $archive -UseBasicParsing
+    Expand-Archive -LiteralPath $archive -DestinationPath $sdkDir -Force
+    Remove-Item -LiteralPath $archive
+    $adb = Find-Adb
+    if (!$adb) { throw 'platform-tools extraction finished without adb.exe.' }
+    return $adb
+}
+
+function Enable-AdbTunnel([int]$LocalPort = 8282, [int]$DevicePort = 8282) {
+    $adb = Find-Adb
+    if (!$adb) { throw 'adb.exe not found. Run Install-Adb first.' }
+    $listed = @(& $adb devices | Select-Object -Skip 1 | Where-Object { $_.Trim() })
+    $ready = @($listed | Where-Object { $_ -match '\sdevice\s*$' })
+    if ($ready.Count -eq 0) {
+        if (@($listed | Where-Object { $_ -match 'unauthorized' }).Count) {
+            throw 'the phone shows as unauthorized. Unlock it, accept the "Allow USB debugging" dialog (tick always allow), then retry.'
+        }
+        throw 'no ADB device is visible. Enable Developer options -> USB debugging on the phone.'
+    }
+    if ($ready.Count -gt 1) { throw 'multiple ADB devices are connected; keep only the TetherFlow phone attached.' }
+    & $adb forward "tcp:$LocalPort" "tcp:$DevicePort" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "adb forward tcp:$LocalPort failed." }
+    # The tunnel must actually reach TetherFlow before callers rely on it.
+    $probe = [System.Net.WebRequest]::Create("http://127.0.0.1:$LocalPort/pac")
+    $probe.Proxy = $null
+    $probe.Timeout = 5000
+    $response = $probe.GetResponse()
+    $response.Close()
+    return $true
+}
+
 function Enable-SteamDualGuard([string]$PhoneInterface, [string]$PhoneAddress) {
     # Windows block rules override allows. Block every remote IP except the
     # phone itself, rather than an all-IP block plus a nonfunctional allow rule.
-    $bytes = [System.Net.IPAddress]::Parse($PhoneAddress).GetAddressBytes()
-    [array]::Reverse($bytes)
-    $value = [BitConverter]::ToUInt32($bytes,0)
-    if ($value -eq 0 -or $value -eq [uint32]::MaxValue) { throw 'Invalid phone address.' }
-    function Convert-IP([uint32]$n) {
-        $b = [BitConverter]::GetBytes($n); [array]::Reverse($b)
-        return ([System.Net.IPAddress]::new($b)).ToString()
+    if ([System.Net.IPAddress]::IsLoopback([System.Net.IPAddress]::Parse($PhoneAddress))) {
+        # ADB-tunnel mode reaches the phone via loopback, so nothing on the USB
+        # adapter needs to stay reachable: block the whole internet on it.
+        $ranges = @('0.0.0.1-255.255.255.254', '::/1', '8000::/1')
+    } else {
+        $bytes = [System.Net.IPAddress]::Parse($PhoneAddress).GetAddressBytes()
+        [array]::Reverse($bytes)
+        $value = [BitConverter]::ToUInt32($bytes,0)
+        if ($value -eq 0 -or $value -eq [uint32]::MaxValue) { throw 'Invalid phone address.' }
+        function Convert-IP([uint32]$n) {
+            $b = [BitConverter]::GetBytes($n); [array]::Reverse($b)
+            return ([System.Net.IPAddress]::new($b)).ToString()
+        }
+        # Windows rejects the unspecified/broadcast endpoints and IPv6 /0 here.
+        $ranges = @("0.0.0.1-$(Convert-IP ($value-1))", "$(Convert-IP ($value+1))-255.255.255.254", '::/1', '8000::/1')
     }
-    # Windows rejects the unspecified/broadcast endpoints and IPv6 /0 here.
-    $ranges = @("0.0.0.1-$(Convert-IP ($value-1))", "$(Convert-IP ($value+1))-255.255.255.254", '::/1', '8000::/1')
     $ruleName = 'TetherFlow-SteamDual-USB-Guard'
     # Fail before starting TUN if Windows Firewall cannot enforce this guard.
     if (@(Get-NetFirewallProfile | Where-Object { !$_.Enabled }).Count) { throw 'All Windows Firewall profiles must be enabled for the USB leak guard.' }
