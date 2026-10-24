@@ -1,0 +1,20 @@
+Test Suite 'Selected tests' started at 2026-10-24 03:49:22.413.
+Test Suite 'TetherFlowIOSPackageTests.xctest' started at 2026-10-24 03:49:22.414.
+Test Suite 'FinalByteTests' started at 2026-10-24 03:49:22.414.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' started.
+/Users/ruirui/TetherFlow/ios/Tests/ProxyCoreTests/FinalByteTests.swift:156: error: -[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose] : XCTAssertEqual failed: ("1502999 bytes") is not equal to ("2097208 bytes")
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' failed (0.220 seconds).
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentWithoutClientHalfClose]' started.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentWithoutClientHalfClose]' passed (0.199 seconds).
+Test Suite 'FinalByteTests' failed at 2026-10-24 03:49:22.833.
+	 Executed 2 tests, with 1 failure (0 unexpected) in 0.419 (0.419) seconds
+Test Suite 'TetherFlowIOSPackageTests.xctest' failed at 2026-10-24 03:49:22.833.
+	 Executed 2 tests, with 1 failure (0 unexpected) in 0.419 (0.419) seconds
+Test Suite 'Selected tests' failed at 2026-10-24 03:49:22.833.
+	 Executed 2 tests, with 1 failure (0 unexpected) in 0.419 (0.420) seconds
+FINAL-BYTE upstream failed; up=0 down=1502960 elapsed=0.004s
+FINAL-BYTE tunnel complete; up=0 down=2097169 elapsed=0.004s
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

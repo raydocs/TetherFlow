@@ -1,0 +1,29 @@
+Test Suite 'Selected tests' started at 2026-10-24 03:46:16.012.
+Test Suite 'TetherFlowIOSPackageTests.xctest' started at 2026-10-24 03:46:16.013.
+Test Suite 'FinalByteTests' started at 2026-10-24 03:46:16.013.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' started.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' passed (0.206 seconds).
+Test Suite 'FinalByteTests' passed at 2026-10-24 03:46:16.219.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.206 (0.206) seconds
+Test Suite 'TransportTests' started at 2026-10-24 03:46:16.219.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' started.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' passed (0.201 seconds).
+Test Suite 'TransportTests' passed at 2026-10-24 03:46:16.420.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.201 (0.201) seconds
+Test Suite 'TetherFlowIOSPackageTests.xctest' passed at 2026-10-24 03:46:16.420.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.406 (0.407) seconds
+Test Suite 'Selected tests' passed at 2026-10-24 03:46:16.420.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.406 (0.408) seconds
+TRACE receive eof upload=true count=0 up=0 down=0
+TRACE half-close processed error=nil client=false up=0 down=0
+TRACE upstream failed POSIXErrorCode(rawValue: 50): Network is down phase=tunnel up=0 down=2097169
+FINAL-BYTE upstream failed: POSIXErrorCode(rawValue: 50): Network is down; up=0 down=2097169 elapsed=0.005s
+TRACE receive eof upload=true count=2877 up=2094297 down=573445
+TRACE forward eof processed upload=true count=2877
+TRACE half-close processed error=nil client=false up=2097174 down=589829
+TRACE receive eof upload=false count=0 up=2097174 down=2097174
+TRACE upstream failed POSIXErrorCode(rawValue: 50): Network is down phase=tunnel up=2097174 down=2097174
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

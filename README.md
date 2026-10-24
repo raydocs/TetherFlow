@@ -9,6 +9,14 @@
 
 ---
 
+## iPhone + Windows Steam acceleration (experimental)
+
+A separate foreground iOS USB proxy and Windows dual-uplink Steam relay are under
+active development. Start with [the Windows setup and limitations](desktop/steam-tools/README.zh-CN.md)
+and [iOS build/signing requirements](ios/README.md). This is **not** enabled by the
+legacy desktop executable or Android PAC mode. No physical iPhone/Windows Steam
+speed gain, 1200 Mbps delivery, or carrier-accounting bypass has been verified.
+
 ## 💡 Why TetherFlow? (为什么选择 TetherFlow)
 
 Traditional carrier unlimited plans (like **AT&T Business Unlimited**, T-Mobile, Verizon) offer true unlimited unthrottled on-device data, but strictly cap or throttle hotspot/tethering data (e.g. 100GB cap, then 128kbps throttle).

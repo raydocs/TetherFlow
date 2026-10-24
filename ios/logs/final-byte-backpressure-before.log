@@ -1,0 +1,32 @@
+[0/1] Planning build
+Building for debugging...
+[0/4] Write sources
+[2/4] Write swift-version--58304C5D6DBC2206.txt
+[4/6] Emitting module ProxyCore
+[5/6] Compiling ProxyCore ProxyServer.swift
+[6/9] Compiling ProxyCoreTests FinalByteTests.swift
+[7/9] Emitting module ProxyCoreTests
+[7/9] Write Objects.LinkFileList
+[8/9] Linking TetherFlowIOSPackageTests
+Build complete! (2.20s)
+Test Suite 'Selected tests' started at 2026-10-24 03:47:21.115.
+Test Suite 'TetherFlowIOSPackageTests.xctest' started at 2026-10-24 03:47:21.116.
+Test Suite 'FinalByteTests' started at 2026-10-24 03:47:21.116.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' started.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' passed (0.202 seconds).
+Test Suite 'FinalByteTests' passed at 2026-10-24 03:47:21.319.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.202 (0.203) seconds
+Test Suite 'TetherFlowIOSPackageTests.xctest' passed at 2026-10-24 03:47:21.319.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.202 (0.203) seconds
+Test Suite 'Selected tests' passed at 2026-10-24 03:47:21.319.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.202 (0.203) seconds
+TRACE receive upload=true phase=tunnel bytes=0 eof=true error=nil
+TRACE receive eof upload=true count=0 up=0 down=0
+TRACE half-close processed error=nil client=false up=0 down=0
+TRACE receive upload=false phase=tunnel bytes=17 eof=false error=nil
+TRACE upstream failed POSIXErrorCode(rawValue: 50): Network is down phase=tunnel up=0 down=2097169
+FINAL-BYTE upstream failed: POSIXErrorCode(rawValue: 50): Network is down; up=0 down=2097169 elapsed=0.006s
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

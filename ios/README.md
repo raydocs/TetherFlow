@@ -39,6 +39,12 @@ machine before a signed iOS 27 deployment. This task did not install one.
 
 ## USB setup (physical evidence still required)
 
+The new Windows Steam launcher has a built-in USBmux client and does **not**
+require a separate iproxy install by default; follow
+[Windows setup](../desktop/steam-tools/README.zh-CN.md). The manual iproxy steps
+below remain an optional standalone diagnostic path, especially on macOS.
+
+
 1. Supply working Apple mobile-device USB drivers/services and pairing on the
    host. macOS and Windows installation/distribution requirements differ.
 2. Supply `iproxy` from libusbmuxd, a paired/trusted device, and a data-capable cable.

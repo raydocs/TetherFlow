@@ -1,0 +1,29 @@
+Test Suite 'Selected tests' started at 2026-10-24 03:46:14.794.
+Test Suite 'TetherFlowIOSPackageTests.xctest' started at 2026-10-24 03:46:14.796.
+Test Suite 'FinalByteTests' started at 2026-10-24 03:46:14.796.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' started.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' passed (0.241 seconds).
+Test Suite 'FinalByteTests' passed at 2026-10-24 03:46:15.039.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.241 (0.243) seconds
+Test Suite 'TransportTests' started at 2026-10-24 03:46:15.039.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' started.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' passed (0.312 seconds).
+Test Suite 'TransportTests' passed at 2026-10-24 03:46:15.351.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.312 (0.312) seconds
+Test Suite 'TetherFlowIOSPackageTests.xctest' passed at 2026-10-24 03:46:15.351.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.553 (0.554) seconds
+Test Suite 'Selected tests' passed at 2026-10-24 03:46:15.351.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.553 (0.557) seconds
+TRACE receive eof upload=true count=0 up=0 down=0
+TRACE half-close processed error=nil client=false up=0 down=0
+TRACE upstream failed POSIXErrorCode(rawValue: 50): Network is down phase=tunnel up=0 down=2097169
+FINAL-BYTE upstream failed: POSIXErrorCode(rawValue: 50): Network is down; up=0 down=2097169 elapsed=0.005s
+TRACE receive eof upload=true count=225 up=2096949 down=819205
+TRACE forward eof processed upload=true count=225
+TRACE half-close processed error=nil client=false up=2097174 down=1277957
+TRACE receive eof upload=false count=0 up=2097174 down=2097174
+TRACE half-close processed error=nil client=true up=2097174 down=2097174
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

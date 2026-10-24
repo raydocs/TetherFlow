@@ -27,16 +27,20 @@ type path struct {
 
 // Relay is safe for concurrent use. Configuration and injected seams are immutable
 // after New. Close cancels in-flight work and closes idle transport connections
-// as well as all active phone sockets.
+// as well as all active phone sockets, TLS listeners and TLS sessions. It waits
+// for TLS sessions to exit; HTTP server shutdown remains the caller's concern.
 type Relay struct {
-	cfg          Config
-	mu           sync.Mutex
-	paths        [2]path
-	slots        chan struct{}
-	dialSlots    chan struct{}
-	phoneSockets phoneBudget
-	ctx          context.Context
-	cancel       context.CancelFunc
+	cfg                 Config
+	mu                  sync.Mutex
+	paths               [2]path
+	slots               chan struct{}
+	dialSlots           chan struct{}
+	phoneSockets        phoneBudget
+	ctx                 context.Context
+	cancel              context.CancelFunc
+	homeDial, phoneDial DialContextFunc
+	tlsMu               sync.Mutex
+	tlsServers          map[*tlsIngress]struct{}
 }
 
 func New(config Config) (*Relay, error) {
@@ -60,6 +64,8 @@ func New(config Config) (*Relay, error) {
 	if phoneDial == nil {
 		phoneDial = (&net.Dialer{Timeout: c.DialTimeout, KeepAlive: 30 * time.Second}).DialContext
 	}
+	r.homeDial, r.phoneDial = homeDial, phoneDial
+	r.tlsServers = make(map[*tlsIngress]struct{})
 	home := c.HomeTransport
 	if home == nil {
 		home = r.transport(r.originDial(homeDial, false))
@@ -92,6 +98,7 @@ func (r *Relay) Snapshot() Status {
 
 func (r *Relay) Close() error {
 	r.cancel()
+	r.closeTLS()
 	r.phoneSockets.close()
 	for i := range r.paths {
 		if c, ok := r.paths[i].transport.(interface{ CloseIdleConnections() }); ok {
@@ -375,8 +382,14 @@ func (r *Relay) originDial(dial DialContextFunc, phone bool) DialContextFunc {
 			} else {
 				conn, err = dial(ctx, "tcp4", pinned)
 			}
-			if err == nil {
+			if err == nil && conn != nil {
 				return conn, nil
+			}
+			if conn != nil {
+				conn.Close()
+			}
+			if err == nil {
+				err = errors.New("dial returned no connection")
 			}
 			last = err
 			if ctx.Err() != nil || errors.Is(err, errPhoneCapacity) {

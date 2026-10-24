@@ -1,0 +1,36 @@
+[0/1] Planning build
+Building for debugging...
+[0/4] Write sources
+[1/4] Write swift-version--58304C5D6DBC2206.txt
+[3/6] Emitting module ProxyCoreTests
+[4/6] Compiling ProxyCoreTests FinalByteTests.swift
+/Users/ruirui/TetherFlow/ios/Tests/ProxyCoreTests/FinalByteTests.swift:24:53: error: 'self' captured by a closure before all members were initialized
+  9 | private final class HalfCloseOrigin {
+ 10 |     let listener: Int32
+ 11 |     let port: UInt16
+    |         `- note: 'self.port' not initialized
+ 12 |     let tailReady = DispatchSemaphore(value: 0)
+ 13 |     let releaseTail = DispatchSemaphore(value: 0)
+    :
+ 22 |         address.sin_family = sa_family_t(AF_INET)
+ 23 |         address.sin_addr.s_addr = inet_addr("127.0.0.1")
+ 24 |         let bound = withUnsafePointer(to: &address) { pointer in
+    |                                                     `- error: 'self' captured by a closure before all members were initialized
+ 25 |             pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+ 26 |                 Darwin.bind(listener, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+
+/Users/ruirui/TetherFlow/ios/Tests/ProxyCoreTests/FinalByteTests.swift:31:52: error: 'self' captured by a closure before all members were initialized
+  9 | private final class HalfCloseOrigin {
+ 10 |     let listener: Int32
+ 11 |     let port: UInt16
+    |         `- note: 'self.port' not initialized
+ 12 |     let tailReady = DispatchSemaphore(value: 0)
+ 13 |     let releaseTail = DispatchSemaphore(value: 0)
+    :
+ 29 |         guard bound == 0, Darwin.listen(listener, 1) == 0 else { throw FinalByteFailure.socket("bind/listen") }
+ 30 |         var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+ 31 |         _ = withUnsafeMutablePointer(to: &address) { pointer in
+    |                                                    `- error: 'self' captured by a closure before all members were initialized
+ 32 |             pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.getsockname(listener, $0, &length) }
+ 33 |         }
+error: fatalError

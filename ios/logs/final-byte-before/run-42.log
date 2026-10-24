@@ -1,0 +1,29 @@
+Test Suite 'Selected tests' started at 2026-10-24 03:46:53.978.
+Test Suite 'TetherFlowIOSPackageTests.xctest' started at 2026-10-24 03:46:53.979.
+Test Suite 'FinalByteTests' started at 2026-10-24 03:46:53.979.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' started.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' passed (0.224 seconds).
+Test Suite 'FinalByteTests' passed at 2026-10-24 03:46:54.203.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.224 (0.224) seconds
+Test Suite 'TransportTests' started at 2026-10-24 03:46:54.203.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' started.
+/Users/ruirui/TetherFlow/ios/Tests/ProxyCoreTests/TransportTests.swift:165: error: -[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose] : XCTAssertEqual failed: ("2097157 bytes") is not equal to ("2097174 bytes")
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' failed (0.467 seconds).
+Test Suite 'TransportTests' failed at 2026-10-24 03:46:54.670.
+	 Executed 1 test, with 1 failure (0 unexpected) in 0.467 (0.468) seconds
+Test Suite 'TetherFlowIOSPackageTests.xctest' failed at 2026-10-24 03:46:54.670.
+	 Executed 2 tests, with 1 failure (0 unexpected) in 0.691 (0.692) seconds
+Test Suite 'Selected tests' failed at 2026-10-24 03:46:54.670.
+	 Executed 2 tests, with 1 failure (0 unexpected) in 0.691 (0.693) seconds
+TRACE receive eof upload=true count=0 up=0 down=0
+TRACE half-close processed error=nil client=false up=0 down=0
+TRACE upstream failed POSIXErrorCode(rawValue: 50): Network is down phase=tunnel up=0 down=2097152
+FINAL-BYTE upstream failed: POSIXErrorCode(rawValue: 50): Network is down; up=0 down=2097152 elapsed=0.005s
+TRACE receive eof upload=true count=17 up=2097157 down=1359877
+TRACE forward eof processed upload=true count=17
+TRACE half-close processed error=nil client=false up=2097174 down=1376261
+TRACE upstream failed POSIXErrorCode(rawValue: 50): Network is down phase=tunnel up=2097174 down=2080773
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

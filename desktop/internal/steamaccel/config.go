@@ -1,4 +1,4 @@
-// Package steamaccel provides a bounded, HTTP-only Steam content relay across
+// Package steamaccel provides a bounded HTTP and opaque TLS Steam content relay across
 // two independently scheduled uplinks. It does not bond individual TCP streams.
 package steamaccel
 

@@ -1,0 +1,25 @@
+[0/1] Planning build
+Building for debugging...
+[0/4] Write sources
+[1/4] Write swift-version--58304C5D6DBC2206.txt
+[3/6] Emitting module ProxyCoreTests
+[4/6] Compiling ProxyCoreTests FinalByteTests.swift
+[4/6] Write Objects.LinkFileList
+[5/6] Linking TetherFlowIOSPackageTests
+Build complete! (1.36s)
+Test Suite 'Selected tests' started at 2026-10-24 03:45:50.510.
+Test Suite 'TetherFlowIOSPackageTests.xctest' started at 2026-10-24 03:45:50.513.
+Test Suite 'FinalByteTests' started at 2026-10-24 03:45:50.513.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' started.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' passed (0.205 seconds).
+Test Suite 'FinalByteTests' passed at 2026-10-24 03:45:50.718.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.205 (0.206) seconds
+Test Suite 'TetherFlowIOSPackageTests.xctest' passed at 2026-10-24 03:45:50.718.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.205 (0.206) seconds
+Test Suite 'Selected tests' passed at 2026-10-24 03:45:50.718.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.205 (0.208) seconds
+FINAL-BYTE upstream failed; up=0 down=2097169 elapsed=0.006s
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

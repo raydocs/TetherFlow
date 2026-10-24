@@ -1,0 +1,28 @@
+[0/1] Planning build
+Test Suite 'Selected tests' started at 2026-10-24 03:46:12.745.
+Test Suite 'TetherFlowIOSPackageTests.xctest' started at 2026-10-24 03:46:12.746.
+Test Suite 'FinalByteTests' started at 2026-10-24 03:46:12.746.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' started.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' passed (0.251 seconds).
+Test Suite 'FinalByteTests' passed at 2026-10-24 03:46:12.997.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.251 (0.251) seconds
+Test Suite 'TransportTests' started at 2026-10-24 03:46:12.997.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' started.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' passed (0.211 seconds).
+Test Suite 'TransportTests' passed at 2026-10-24 03:46:13.208.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.211 (0.211) seconds
+Test Suite 'TetherFlowIOSPackageTests.xctest' passed at 2026-10-24 03:46:13.208.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.461 (0.462) seconds
+Test Suite 'Selected tests' passed at 2026-10-24 03:46:13.208.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.461 (0.463) seconds
+TRACE half-close processed error=nil client=false up=0 down=0
+TRACE upstream failed POSIXErrorCode(rawValue: 50): Network is down phase=tunnel up=0 down=2097169
+FINAL-BYTE upstream failed: POSIXErrorCode(rawValue: 50): Network is down; up=0 down=2097169 elapsed=0.006s
+TRACE receive eof upload=true count=0 up=2097174 down=311301
+TRACE half-close processed error=nil client=false up=2097174 down=311301
+TRACE receive eof upload=false count=0 up=2097174 down=2097174
+TRACE upstream failed POSIXErrorCode(rawValue: 50): Network is down phase=tunnel up=2097174 down=2097174
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

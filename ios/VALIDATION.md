@@ -143,3 +143,104 @@ The pre-existing `HighSpeedProxyEngine.kt` diff SHA-256 was
 and unchanged at verification. No files outside `ios/` were edited by this task;
 no unrelated changes were staged, reverted or claimed. No independent security
 review was requested/run; this prototype has not been merged or deployed.
+
+## 2026-10-24 — production buffered-receive truncation follow-up
+
+This entry supersedes **only** the earlier attribution of all observed truncation
+risk to the echo fixture. Earlier logs and their reported failures remain intact.
+Baseline production source: commit `832d743` (`ProxyServer.swift` unchanged since
+the reported CI failure). No files outside `ios/` were edited for this follow-up.
+
+### Discriminating evidence and cause
+
+- The supplied CI run `40082685166` failed the original bidirectional CONNECT
+  assertion with **2,097,157 / 2,097,174** bytes (last 17 missing). On this macOS
+  host, the unchanged original test reproduced exactly that result on run 42:
+  `logs/final-byte-before/run-42.log`. Temporary instrumentation recorded
+  **upstream `.failed(ENETDOWN)` while phase was still `tunnel`**, upload accounting
+  2,097,174 and download accounting 2,080,773. The old state handler immediately
+  called `cancel()`, cancelling outstanding forwarding/receives. The peer got the
+  already-enqueued 16 KiB but not the remaining 17 bytes. Instrumentation is not
+  retained in production code.
+- New `FinalByteTests` uses a **BSD-socket origin**, not `EchoPeer` or its
+  Network.framework lifetime. It sends a 2 MiB pattern and a separate exact
+  17-byte tail, then write-closes. The client has a 4 KiB receive buffer and
+  does not consume the body until the origin's final write/shutdown completes.
+  Semaphores control the final fragment; there are **no sleeps or production
+  drain delays**. The origin's test-only 4 MiB send buffer avoids a circular
+  wait between the gate and the deliberately paused consumer. Payload and
+  fixture memory are bounded; socket/gate waits have deadlines.
+- Running these final regression tests against the **actual unchanged production
+  source** failed **5/5** runs on the client-half-close variant, with truncated
+  responses of 1,114,151–1,818,507 bytes rather than 2,097,208 including the
+  CONNECT header: `logs/final-byte-regression-old/run-{1...5}.log`. The variant
+  without an initial client half-close passed and remains in the regression.
+- In the isolated state-handler experiment, retaining the connection after
+  `.failed` allowed the existing receive pump to deliver all remaining bytes
+  and a clean EOF: `logs/final-byte-buffered-deferred.log` records failure state
+  at 1,163,108 accounted bytes followed by **2,097,169** complete body bytes.
+  This separates premature production cancellation from the echo fixture and
+  from an assumption that `.failed` means the receive buffer is empty.
+- An earlier exploratory gate used the default origin send buffer and could
+  deadlock until its deadlines when the paused consumer applied backpressure
+  (`logs/final-byte-unread-deferred.log`). Those gate timeouts are **not** counted
+  as proof of the production fix. The final fixture explicitly bounds and sizes
+  its send buffer and the final old-source regression was rerun after that fix.
+
+### Fix and contract boundaries
+
+Established tunnel directions now terminate via their receive/send completions,
+not a connection state callback. Each direction still has at most one 64 KiB
+forward in flight. Receive bytes are forwarded **before** a co-delivered error
+terminates that direction. A write/FIN failure finishes only its own direction,
+so it cannot cancel the opposite direction's pending buffered bytes. Both finished
+directions still release the session immediately; idle cancellation remains
+30 seconds, maximum sessions remains **32**, and explicit stop, cellular/path
+rejection, authentication and connection/header deadlines are unchanged.
+
+The SDK `Network.framework/Headers/connection.h` documents that receive errors
+may accompany content, send completion means sent **or enqueued**, and cancelling
+a connection does **not** guarantee pending sends without completions are sent.
+Apple's [receive completion contract](https://developer.apple.com/documentation/network/nw_connection_receive_completion_t)
+and [send API](https://developer.apple.com/documentation/network/nwconnection/send%28content%3Acontentcontext%3Aiscomplete%3Acompletion%3A%29-5ecuz)
+are consistent with this lifetime discipline. The specific reproduced cause is
+**state-callback cancellation before buffered delivery**; a data-plus-error
+receive was not independently reproduced and is not asserted to explain CI.
+
+The existing `.finalMessage` half-closes, diagnostic payload and diagnostic
+completion cancellation were not changed: this experiment did not implicate
+those paths. Neither `contentProcessed`, origin `shutdown`, nor host-side byte
+accounting is treated as proof of a remote TCP ACK or of physical-iOS delivery.
+EOF plus exact bytes at the receiving application is the test acceptance check.
+
+### Executed verification and remaining risk
+
+- **50/50** macOS host XCTest stress invocations passed, **5 tests each / 250
+  test executions**: both controlled-fragment variants, the unchanged original
+  `testCONNECTActualTCPBidirectionalPayloadAndHalfClose`, CONNECT :80, and exact
+  diagnostic body/EOF. Command:
+  `swift test --package-path ios --skip-build --filter 'FinalByteTests|TransportTests.testCONNECTActualTCPBidirectionalPayloadAndHalfClose|TransportTests.testDiagnosticActualTCPExactBytesAndEOF|TransportTests.testCONNECTPort80ActualTCP'`.
+  Every run is preserved separately in
+  `logs/final-byte-fixed-stress/run-{1...50}.log`; no retry/ignored failures.
+- Complete host suite: **19 tests, zero failures** in
+  `logs/final-byte-full-suite.log`. Final fixture cleanup/accept-deadline and
+  response-memory-bound tightening is recompiled/rechecked separately in
+  `logs/final-byte-full-suite-final.log` (same production source).
+- Existing root-owned integration runner was executed **without editing its
+  files**: `TF_INTEGRATION_COUNT=10 bash integration/verify-host.sh`, **10/10
+  HTTP + certificate-verified TLS runs passed** with the changed production
+  Swift core and the concurrently maintained Go integration tree;
+  `logs/final-byte-crosslanguage.log`. This is host-fixture integration, not a
+  clean committed-tree or physical-iOS claim. Some final FIN completions report
+  `ENOTCONN` after exact payload delivery; these remain visible in session logs,
+  and per-direction cleanup does not discard the opposite direction's data.
+- `git diff --check -- ios` passed. No tests, payloads, auth rules, cellular-only
+  policy or session/idle limits were weakened. No commit, push, simulator runtime
+  installation, device build or independent review was performed by this task.
+- Remaining risk: macOS-host behavior is not proof of device Network.framework
+  ordering, cellular loss handling, USB transport, carrier routing or remote
+  delivery. The physical/integration checklist above still applies. The initial
+  cross-language HTTP failure was not reproduced deterministically here, so its
+  exact historical cause is not claimed; the buffered state-callback race is
+  independently reproduced and fixed. The receive data-plus-error path is API
+  contract hardening, not a separately reproduced failure attribution.

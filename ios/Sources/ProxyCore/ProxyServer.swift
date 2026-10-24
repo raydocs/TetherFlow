@@ -139,7 +139,8 @@ private final class ProxySession {
     private var activity = DispatchTime.now().uptimeNanoseconds
     private var uploadBytes = 0
     private var downloadBytes = 0
-    private var finishedDirections = 0
+    private var finishedDirections: Set<Bool> = []
+    private var relayFailure: String?
 
     init(client: NWConnection, token: String, queue: DispatchQueue, egress: EgressPolicy,
          completion: @escaping (String) -> Void) {
@@ -160,7 +161,10 @@ private final class ProxySession {
             guard let self else { return }
             switch state {
             case .ready: self.readHeader()
-            case .failed: self.cancel(reason: "client failed")
+            case .failed:
+                // A terminal state can precede delivery of buffered stream bytes. In a
+                // tunnel, receive/send completions own each direction's termination.
+                if self.phase != .tunnel { self.cancel(reason: "client failed") }
             case .cancelled: self.cancel(reason: "client cancelled")
             default: break
             }
@@ -274,7 +278,9 @@ private final class ProxySession {
                 })
             case .failed:
                 if self.phase == .connecting { self.respond(502, "Bad Gateway") }
-                else { self.cancel(reason: "upstream failed") }
+                // Do not cancel an established stream here: Network.framework can
+                // report .failed before its buffered receives (including EOF) drain.
+                // The pumps remain bounded by backpressure and the idle deadline.
             default: break
             }
         }
@@ -285,9 +291,11 @@ private final class ProxySession {
         guard phase == .tunnel else { return }
         source.receive(minimumIncompleteLength: 1, maximumLength: DiagnosticPayload.chunkBytes) { [weak self] data, _, eof, error in
             guard let self, self.phase == .tunnel else { return }
-            guard error == nil else { self.cancel(reason: "relay receive failed"); return }
+            // A receive may contain bytes together with an error. Forward those bytes
+            // before propagating the terminal condition; never discard a final fragment.
+            if let error { self.relayFailure = "relay receive failed: \(error)" }
             self.activity = DispatchTime.now().uptimeNanoseconds
-            self.forward(data ?? Data(), eof: eof, from: source, to: destination, uploading: uploading)
+            self.forward(data ?? Data(), eof: eof || error != nil, from: source, to: destination, uploading: uploading)
         }
     }
 
@@ -296,27 +304,35 @@ private final class ProxySession {
         guard phase == .tunnel else { return }
         // Wait for contentProcessed before the next receive: at most one 64 KiB send per direction.
         if data.isEmpty {
-            if eof { halfClose(destination) } else { pump(from: source, to: destination, uploading: uploading) }
+            if eof { halfClose(destination, uploading: uploading) } else { pump(from: source, to: destination, uploading: uploading) }
             return
         }
         destination.send(content: data, completion: .contentProcessed { [weak self] error in
             guard let self, self.phase == .tunnel else { return }
-            guard error == nil else { self.cancel(reason: "relay send failed"); return }
+            if let error {
+                self.finishDirection(uploading: uploading, failure: "relay send failed: \(error)")
+                return
+            }
             if uploading { self.uploadBytes += data.count } else { self.downloadBytes += data.count }
             self.activity = DispatchTime.now().uptimeNanoseconds
-            if eof { self.halfClose(destination) }
+            if eof { self.halfClose(destination, uploading: uploading) }
             else { self.pump(from: source, to: destination, uploading: uploading) }
         })
     }
 
-    private func halfClose(_ connection: NWConnection) {
+    private func halfClose(_ connection: NWConnection, uploading: Bool) {
         connection.send(content: nil, contentContext: .finalMessage, isComplete: true,
                         completion: .contentProcessed { [weak self] error in
             guard let self, self.phase == .tunnel else { return }
-            guard error == nil else { self.cancel(reason: "half-close failed"); return }
-            self.finishedDirections += 1
-            if self.finishedDirections == 2 { self.cancel(reason: "tunnel complete") }
+            self.finishDirection(uploading: uploading, failure: error.map { "half-close failed: \($0)" })
         })
+    }
+
+    private func finishDirection(uploading: Bool, failure: String? = nil) {
+        if let failure { relayFailure = failure }
+        finishedDirections.insert(uploading)
+        // A failed write must not cancel the other direction's buffered read/write.
+        if finishedDirections.count == 2 { cancel(reason: relayFailure ?? "tunnel complete") }
     }
 
     private func download(_ count: Int) {

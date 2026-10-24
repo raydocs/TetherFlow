@@ -1,0 +1,27 @@
+Test Suite 'Selected tests' started at 2026-10-24 03:46:52.621.
+Test Suite 'TetherFlowIOSPackageTests.xctest' started at 2026-10-24 03:46:52.624.
+Test Suite 'FinalByteTests' started at 2026-10-24 03:46:52.624.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' started.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' passed (0.309 seconds).
+Test Suite 'FinalByteTests' passed at 2026-10-24 03:46:52.934.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.309 (0.310) seconds
+Test Suite 'TransportTests' started at 2026-10-24 03:46:52.934.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' started.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' passed (0.311 seconds).
+Test Suite 'TransportTests' passed at 2026-10-24 03:46:53.245.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.311 (0.312) seconds
+Test Suite 'TetherFlowIOSPackageTests.xctest' passed at 2026-10-24 03:46:53.245.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.620 (0.622) seconds
+Test Suite 'Selected tests' passed at 2026-10-24 03:46:53.245.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.620 (0.624) seconds
+TRACE half-close processed error=nil client=false up=0 down=0
+TRACE upstream failed POSIXErrorCode(rawValue: 50): Network is down phase=tunnel up=0 down=2097152
+FINAL-BYTE upstream failed: POSIXErrorCode(rawValue: 50): Network is down; up=0 down=2097152 elapsed=0.009s
+TRACE receive eof upload=true count=17 up=2097157 down=1359877
+TRACE forward eof processed upload=true count=17
+TRACE half-close processed error=nil client=false up=2097174 down=1376261
+TRACE upstream failed POSIXErrorCode(rawValue: 50): Network is down phase=tunnel up=2097174 down=2097157
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

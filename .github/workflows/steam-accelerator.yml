@@ -26,9 +26,9 @@ jobs:
       - name: Windows protocol, scheduling, hosts and launcher tests
         working-directory: desktop
         run: |
-          go test -race -count=3 ./internal/steamaccel ./internal/steamsetup ./cmd/steam-accelerator
+          go test -race -count=3 ./internal/steamaccel ./internal/steamsetup ./internal/usbmux ./cmd/steam-accelerator
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          go vet ./internal/steamaccel ./internal/steamsetup ./cmd/steam-accelerator
+          go vet ./internal/steamaccel ./internal/steamsetup ./internal/usbmux ./cmd/steam-accelerator
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           go build -trimpath -o steam-tools/tetherflow-steam-accelerator.exe ./cmd/steam-accelerator
           exit $LASTEXITCODE

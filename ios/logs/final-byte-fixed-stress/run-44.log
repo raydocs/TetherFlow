@@ -1,0 +1,28 @@
+Test Suite 'Selected tests' started at 2026-10-24 03:51:04.160.
+Test Suite 'TetherFlowIOSPackageTests.xctest' started at 2026-10-24 03:51:04.161.
+Test Suite 'FinalByteTests' started at 2026-10-24 03:51:04.161.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' started.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' passed (0.202 seconds).
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentWithoutClientHalfClose]' started.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentWithoutClientHalfClose]' passed (0.197 seconds).
+Test Suite 'FinalByteTests' passed at 2026-10-24 03:51:04.559.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.398 (0.398) seconds
+Test Suite 'TransportTests' started at 2026-10-24 03:51:04.559.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' started.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' passed (0.198 seconds).
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTPort80ActualTCP]' started.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTPort80ActualTCP]' passed (0.002 seconds).
+Test Case '-[ProxyCoreTests.TransportTests testDiagnosticActualTCPExactBytesAndEOF]' started.
+Test Case '-[ProxyCoreTests.TransportTests testDiagnosticActualTCPExactBytesAndEOF]' passed (0.201 seconds).
+Test Suite 'TransportTests' passed at 2026-10-24 03:51:04.960.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.401 (0.401) seconds
+Test Suite 'TetherFlowIOSPackageTests.xctest' passed at 2026-10-24 03:51:04.960.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.799 (0.799) seconds
+Test Suite 'Selected tests' passed at 2026-10-24 03:51:04.960.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.799 (0.800) seconds
+FINAL-BYTE tunnel complete; up=0 down=2097169 elapsed=0.005s
+FINAL-BYTE tunnel complete; up=0 down=2097169 elapsed=0.004s
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

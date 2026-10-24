@@ -1,0 +1,27 @@
+Test Suite 'Selected tests' started at 2026-10-24 03:46:29.939.
+Test Suite 'TetherFlowIOSPackageTests.xctest' started at 2026-10-24 03:46:29.940.
+Test Suite 'FinalByteTests' started at 2026-10-24 03:46:29.940.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' started.
+Test Case '-[ProxyCoreTests.FinalByteTests testControlledFinalFragmentAfterClientHalfClose]' passed (0.203 seconds).
+Test Suite 'FinalByteTests' passed at 2026-10-24 03:46:30.143.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.203 (0.203) seconds
+Test Suite 'TransportTests' started at 2026-10-24 03:46:30.143.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' started.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' passed (0.197 seconds).
+Test Suite 'TransportTests' passed at 2026-10-24 03:46:30.340.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.197 (0.197) seconds
+Test Suite 'TetherFlowIOSPackageTests.xctest' passed at 2026-10-24 03:46:30.340.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.400 (0.400) seconds
+Test Suite 'Selected tests' passed at 2026-10-24 03:46:30.340.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.400 (0.401) seconds
+TRACE half-close processed error=nil client=false up=0 down=0
+TRACE upstream failed POSIXErrorCode(rawValue: 50): Network is down phase=tunnel up=0 down=2097169
+FINAL-BYTE upstream failed: POSIXErrorCode(rawValue: 50): Network is down; up=0 down=2097169 elapsed=0.005s
+TRACE receive eof upload=true count=36009 up=2061165 down=1310673
+TRACE forward eof processed upload=true count=36009
+TRACE half-close processed error=nil client=false up=2097174 down=1359877
+TRACE upstream failed POSIXErrorCode(rawValue: 50): Network is down phase=tunnel up=2097174 down=2080721
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

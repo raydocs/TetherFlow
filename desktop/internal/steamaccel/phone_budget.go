@@ -85,21 +85,9 @@ func (c *phoneConn) Close() error {
 	return c.err
 }
 
-func (c *phoneConn) Read(p []byte) (int, error) {
-	n, err := c.Conn.Read(p)
-	if err != nil {
-		c.Close()
-	}
-	return n, err
-}
-
-func (c *phoneConn) Write(p []byte) (int, error) {
-	n, err := c.Conn.Write(p)
-	if err != nil {
-		c.Close()
-	}
-	return n, err
-}
+// EOF closes only the peer's write direction. Keep the socket and its budget
+// reservation alive until explicit Close; the other direction may still be used.
+func (c *phoneConn) CloseWrite() error { return closeWrite(c.Conn) }
 
 func (r *Relay) reservePhone() error {
 	err := r.phoneSockets.reserve()

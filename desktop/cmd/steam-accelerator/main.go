@@ -33,7 +33,11 @@ func main() {
 func run() error {
 	home := flag.String("home-ip", "", "IPv4 assigned to the home Wi-Fi interface (required)")
 	tokenFile := flag.String("phone-token-file", "", "local file containing the iPhone session token; never pass token on command line")
-	phone := flag.String("phone-proxy", "127.0.0.1:8283", "local iproxy forwarding endpoint")
+	phone := flag.String("phone-proxy", "127.0.0.1:8283", "existing local tunnel endpoint; requires --external-tunnel")
+	externalTunnel := flag.Bool("external-tunnel", false, "use existing iproxy/other loopback tunnel instead of built-in Apple USB client")
+	udid := flag.String("device-udid", "", "optional USB device serial/UDID selection when multiple phones are attached")
+	phones := flag.Bool("list-phones", false, "list USB-only Apple devices without modifying settings")
+	httpOnly := flag.Bool("http-only", false, "disable opaque HTTPS/SNI port443 passthrough; HTTP80 only")
 	enable := flag.Bool("enable-steam", false, "explicitly install temporary Steam discovery hosts entry (Windows administrator)")
 	benchmark := flag.Bool("check-phone", false, "verify 128 MiB USB application-path payload and print Mbps; not a cellular test")
 	doctor := flag.Bool("doctor", false, "print local IPv4 interfaces and prerequisites without changing settings")
@@ -52,6 +56,11 @@ func run() error {
 	}
 	if *doctor {
 		return diagnose()
+	}
+	if *phones {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return listPhones(ctx)
 	}
 	if *recoverLease != "" {
 		p, e := hostsPath()
@@ -91,6 +100,16 @@ func run() error {
 	if len(token) < 32 || len(token) > 128 {
 		return errors.New("invalid iOS session token length")
 	}
+	if !*externalTunnel {
+		scanCtx, scanCancel := context.WithTimeout(context.Background(), 8*time.Second)
+		endpoint, cleanupTunnel, tunnelErr := startPhoneTunnel(scanCtx, *udid)
+		scanCancel()
+		if tunnelErr != nil {
+			return tunnelErr
+		}
+		defer cleanupTunnel()
+		*phone = endpoint
+	}
 	count := 1024
 	if *benchmark {
 		count = 128 * 1024 * 1024
@@ -122,6 +141,15 @@ func run() error {
 	}
 	defer listener.Close()
 	server := relay.Server(addr)
+	var tlsListener net.Listener
+	if !*httpOnly {
+		tlsAddr := net.JoinHostPort(*home, "443")
+		tlsListener, err = net.Listen("tcp4", tlsAddr)
+		if err != nil {
+			return fmt.Errorf("cannot bind %s for opaque TLS; no settings changed (use --http-only only if intended): %w", tlsAddr, err)
+		}
+		defer tlsListener.Close()
+	}
 	var cleanup = func() {}
 	if *enable {
 		p, e := hostsPath()
@@ -171,23 +199,40 @@ func run() error {
 	if !*enable {
 		log.Print("PREVIEW ONLY: Steam discovery NOT installed. Use --enable-steam after reviewing setup.")
 	}
-	log.Printf("Listening %s. Experimental Steam HTTP chunk relay; real speed and current Steam adoption UNVERIFIED.", addr)
-	log.Print("Keep iOS app foreground and iproxy running. Only local PC peers allowed; no TLS decryption. No requests means Steam is NOT using this relay.")
+	log.Printf("Listening %s. Experimental Steam HTTP / opaque TLS relay; real speed and current Steam adoption UNVERIFIED.", addr)
+	log.Print("Keep iOS app foreground and USB connected. Only local PC peers allowed; no TLS decryption. No requests means Steam is NOT using this relay.")
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	errorsCh := make(chan error, 1)
+	errorsCh := make(chan error, 2)
 	go func() { errorsCh <- server.Serve(listener) }()
+	if tlsListener != nil {
+		go func() { errorsCh <- relay.ServeTLS(tlsListener) }()
+	}
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 	started := time.Now()
+	lastReport := started
+	var lastHomeBytes, lastPhoneBytes uint64
+	warnedInactive := false
 	writeStatus := func() {
 		status := relay.Snapshot()
+		now := time.Now()
+		homeMbps := intervalMbps(lastHomeBytes, status.Home.Bytes, now.Sub(lastReport))
+		phoneMbps := intervalMbps(lastPhoneBytes, status.Phone.Bytes, now.Sub(lastReport))
+		lastReport, lastHomeBytes, lastPhoneBytes = now, status.Home.Bytes, status.Phone.Bytes
+		if !warnedInactive && now.Sub(started) > 45*time.Second && status.Home.Requests+status.Phone.Requests == 0 {
+			warnedInactive = true
+			log.Print("NOT ACCELERATING: no content requests observed after45s. Confirm Steam cache adoption in content_log.txt; configuration alone is not success.")
+		}
 		summary := struct {
-			Started        time.Time `json:"started"`
-			Experimental   bool      `json:"experimental"`
-			SteamDiscovery bool      `json:"steam_discovery_configured"`
-			Status         any       `json:"uplinks"`
-		}{started, true, *enable, status}
+			Started           time.Time `json:"started"`
+			Experimental      bool      `json:"experimental"`
+			SteamDiscovery    bool      `json:"steam_discovery_configured"`
+			Status            any       `json:"uplinks"`
+			HomeMbps          float64   `json:"home_interval_mbps"`
+			PhoneMbps         float64   `json:"phone_interval_mbps"`
+			BothPathsObserved bool      `json:"both_paths_observed"`
+		}{started, true, *enable, status, homeMbps, phoneMbps, status.Home.Bytes > 0 && status.Phone.Bytes > 0}
 		if *report != "" {
 			encoded, e := json.MarshalIndent(summary, "", "  ")
 			if e == nil {
@@ -196,7 +241,7 @@ func run() error {
 				}
 			}
 		}
-		log.Printf("Home: %d bytes / %d attempts; phone: %d bytes / %d attempts. Counts are relayed bodies, not proof of speed gain.", status.Home.Bytes, status.Home.Requests, status.Phone.Bytes, status.Phone.Requests)
+		log.Printf("Home %.1f Mbps (%d bytes/%d attempts), phone %.1f Mbps (%d bytes/%d attempts), combined %.1f Mbps. Interval accounting, not a verified speed gain.", homeMbps, status.Home.Bytes, status.Home.Requests, phoneMbps, status.Phone.Bytes, status.Phone.Requests, homeMbps+phoneMbps)
 	}
 	defer writeStatus()
 	for {
@@ -263,7 +308,7 @@ func diagnose() error {
 			}
 		}
 	}
-	fmt.Println("Required: foreground signed iOS app; Apple device USB stack; iproxy bound to127.0.0.1:8283; private token file; home Wi-Fi IPv4; free TCP80.")
+	fmt.Println("Required: foreground signed iOS app; Apple Devices USB service; private token file; home Wi-Fi IPv4; free TCP80/443 (or explicit HTTP-only mode).")
 	fmt.Println("USB link speed, iPhone cellular throughput and Steam adoption cannot be established by this command.")
 	return nil
 }

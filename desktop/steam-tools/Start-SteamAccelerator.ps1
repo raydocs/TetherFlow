@@ -3,10 +3,11 @@
 param(
     [string]$HomeIP,
     [string]$Executable = "$PSScriptRoot\tetherflow-steam-accelerator.exe",
-    [string]$IProxy = 'iproxy.exe',
+    [string]$IProxy = '',
     [string]$DeviceUDID,
     [switch]$CheckPhoneOnly,
     [switch]$UseExistingTunnel,
+    [switch]$HttpOnly,
     [int]$HomeWeight = 1,
     [int]$PhoneWeight = 4,
     [string]$AllowedHosts
@@ -26,7 +27,7 @@ if (-not $CheckPhoneOnly) {
 $tunnel = $null
 $tokenPath = $null
 try {
-    if (-not $UseExistingTunnel) {
+    if ($IProxy -and -not $UseExistingTunnel) {
         $iproxyCommand = Get-Command $IProxy -ErrorAction Stop
         $iproxyArgs = @('-l', '-s', '127.0.0.1')
         if ($DeviceUDID) {
@@ -59,10 +60,13 @@ try {
         $secure.Dispose()
     }
     $cliArgs = @('--phone-token-file', $tokenPath)
+    if ($UseExistingTunnel -or $IProxy) { $cliArgs += '--external-tunnel' }
+    if ($DeviceUDID -and -not ($UseExistingTunnel -or $IProxy)) { $cliArgs += @('--device-udid', $DeviceUDID) }
     if ($CheckPhoneOnly) {
         $cliArgs += '--check-phone'
     } else {
         $cliArgs += @('--home-ip', $HomeIP, '--enable-steam', '--home-weight', "$HomeWeight", '--phone-weight', "$PhoneWeight", '--report', "$PSScriptRoot\tetherflow-status.json")
+        if ($HttpOnly) { $cliArgs += '--http-only' }
         if ($AllowedHosts) { $cliArgs += @('--allow-hosts', $AllowedHosts) }
         Write-Host 'After startup succeeds, fully exit and reopen Steam once. Download a game and watch both path counters.'
         Write-Host 'No relay traffic means Steam is NOT using this path. Do not mistake configuration for acceleration.'

@@ -1,4 +1,4 @@
-# Steam HTTP relay core
+# Steam HTTP and opaque TLS relay core
 
 See [API.md](API.md) for the stable embedding API, defaults, resolver/dial test
 seams and launcher responsibilities. No CLI, hosts installer or PAC changes live
@@ -21,11 +21,25 @@ via `MaxPhoneConnections`), including pending dials and idle keepalive pools.
 Local capacity exhaustion does not cool down the phone; idle-host eviction and
 home fallback handle CDN rotation without disabling keepalive.
 
-**Limitations:** HTTP ingress only, no TLS interception/SNI passthrough; modern
+Opaque TLS ingress uses `Relay.ServeTLS(net.Listener) error`; the launcher binds
+the exact local HomeIPv4:443. No certificates are installed and no TLS is
+terminated. Read-only ClientHello capture is limited to 64 KiB / HeaderTimeout;
+missing/invalid SNI, ECH and non-allowlisted/private origins fail closed without
+TLS alerts. Captured bytes pass unchanged to numeric pinned port 443 over either
+uplink (authenticated CONNECT443 on phone). HTTP and TLS share concurrency,
+scheduling and the phone socket budget. Only dial/CONNECT or zero-byte initial
+write failures may fall back; partial TLS streams are never replayed. Bounded
+bidirectional copies use shared idle and maximum-lifetime limits, preserve TCP
+half-close where supported (safe full-close otherwise), and listener exit or
+Relay.Close cancels and waits for sessions. TLS status Bytes are downstream
+encrypted wire bytes, not HTTP body bytes.
+
+**Limitations:** no TLS MITM or arbitrary TLS interception; modern
 Steam cache discovery/adoption is unproven. A hosts/DNS override needs an
 independent public-origin `LookupIP` resolver to avoid intentionally rejected
 local answers. Home sockets require an IPv4 origin (phone may use public IPv6).
-The phone proxy must support CONNECT80; CONNECT443-only cannot carry HTTP caches.
+The phone needs CONNECT80 for HTTP caches and CONNECT443 for opaque TLS;
+CONNECT443-only cannot carry HTTP ingress cache downloads.
 Windows interface selection is implemented but not physically verified. DNS/hosts
 setup, USB reachability, iPhone foreground/cellular routing, correct Wi-Fi egress,
 Steam adoption and actual speed gains require real Windows+iPhone evidence.

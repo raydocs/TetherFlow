@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net"
@@ -26,6 +28,15 @@ import (
 // Uses actual production Swift CONNECT/streaming code over loopback TCP, not a
 // Go reimplementation of the phone. Only the test binary's egress is remapped.
 func TestGoRelayThroughProductionSwiftCore(t *testing.T) {
+	for _, native := range []bool{false, true} {
+		name := "direct-loopback"
+		if native {
+			name = "native-usbmux"
+		}
+		t.Run(name, func(t *testing.T) { testGoRelayThroughSwift(t, native) })
+	}
+}
+func testGoRelayThroughSwift(t *testing.T, native bool) {
 	fixture := os.Getenv("TF_SWIFT_FIXTURE")
 	if fixture == "" {
 		t.Skip("run integration/verify-host.sh for the compiled Swift transport fixture")
@@ -47,11 +58,14 @@ func TestGoRelayThroughProductionSwiftCore(t *testing.T) {
 		_, _ = w.Write(payload)
 	}))
 	defer origin.Close()
+	originTLS := httptest.NewTLSServer(origin.Config.Handler)
+	defer originTLS.Close()
+	_, tlsPortText, _ := net.SplitHostPort(strings.TrimPrefix(originTLS.URL, "https://"))
 	_, portText, _ := net.SplitHostPort(strings.TrimPrefix(origin.URL, "http://"))
 	token := strings.Repeat("c", 64) // TEST-ONLY credential; never a real phone token.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	command := exec.CommandContext(ctx, fixture, portText, token)
+	command := exec.CommandContext(ctx, fixture, portText, tlsPortText, token)
 	stdout, e := command.StdoutPipe()
 	if e != nil {
 		t.Fatal(e)
@@ -74,8 +88,15 @@ func TestGoRelayThroughProductionSwiftCore(t *testing.T) {
 	case <-time.After(8 * time.Second):
 		t.Fatal("Swift listener startup timeout")
 	}
-	cfg := steamaccel.Config{HomeIPv4: "127.0.0.1", PhoneToken: token, PhoneProxyAddr: phone, LookupIP: func(context.Context, string) ([]net.IP, error) { return []net.IP{net.ParseIP("8.8.8.8")}, nil }, HomeDialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-		return (&net.Dialer{}).DialContext(ctx, "tcp", strings.TrimPrefix(origin.URL, "http://"))
+	if native {
+		phone = nativeMuxTunnel(t, phone)
+	}
+	cfg := steamaccel.Config{HomeIPv4: "127.0.0.1", AllowedHosts: []string{"steamcontent.com", "example.com"}, PhoneToken: token, PhoneProxyAddr: phone, LookupIP: func(context.Context, string) ([]net.IP, error) { return []net.IP{net.ParseIP("8.8.8.8")}, nil }, HomeDialContext: func(ctx context.Context, _ string, address string) (net.Conn, error) {
+		target := strings.TrimPrefix(origin.URL, "http://")
+		if strings.HasSuffix(address, ":443") {
+			target = strings.TrimPrefix(originTLS.URL, "https://")
+		}
+		return (&net.Dialer{}).DialContext(ctx, "tcp", target)
 	}}
 	relay, e := steamaccel.New(cfg)
 	if e != nil {
@@ -133,6 +154,58 @@ func TestGoRelayThroughProductionSwiftCore(t *testing.T) {
 		t.Fatalf("body accounting mismatch: %+v", status)
 	}
 	t.Logf("Go home + production Swift USB-core concurrent integrity: home=%d phone=%d bytes (host fixtures, NOT device speed)", status.Home.Bytes, status.Phone.Bytes)
+	// Opaque TLS is checked end-to-end with the real origin certificate trusted
+	// explicitly, never InsecureSkipVerify. Production Swift carries encrypted bytes.
+	tlsListener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tlsListener.Close()
+	tlsServeDone := make(chan error, 1)
+	go func() { tlsServeDone <- relay.ServeTLS(tlsListener) }()
+	roots := x509.NewCertPool()
+	roots.AddCert(originTLS.Certificate())
+	tlsTransport := &http.Transport{Proxy: nil, DisableKeepAlives: true, TLSClientConfig: &tls.Config{RootCAs: roots}, DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, "tcp", tlsListener.Addr().String())
+	}}
+	defer tlsTransport.CloseIdleConnections()
+	tlsClient := &http.Client{Transport: tlsTransport, Timeout: 15 * time.Second}
+	tlsErrors := make(chan error, 10)
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := tlsClient.Get("https://example.com/depot/fixture/chunk/tls")
+			if err != nil {
+				tlsErrors <- err
+				return
+			}
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				tlsErrors <- err
+				return
+			}
+			if resp.StatusCode != 200 || !bytes.Equal(body, payload) {
+				tlsErrors <- fmt.Errorf("TLS payload corrupted/status%d", resp.StatusCode)
+			}
+		}()
+	}
+	wg.Wait()
+	close(tlsErrors)
+	for err := range tlsErrors {
+		t.Error(err)
+	}
+	tlsStatus := relay.Snapshot()
+	if tlsStatus.Home.Requests <= status.Home.Requests || tlsStatus.Phone.Requests <= status.Phone.Requests {
+		t.Fatalf("TLS did not exercise both paths: before=%+v after=%+v", status, tlsStatus)
+	}
+	_ = tlsListener.Close()
+	select {
+	case <-tlsServeDone:
+	case <-time.After(3 * time.Second):
+		t.Fatal("TLS accept loop leaked")
+	}
 	// A new relay prefers the weighted phone path; a killed Swift peer must fail
 	// before response commitment and retry the exact download through home.
 	cancel()

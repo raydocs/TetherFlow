@@ -1,0 +1,352 @@
+=== RUN   TestGoRelayThroughProductionSwiftCore
+SWIFT Session opened (active=1)
+SWIFT Session opened (active=2)
+SWIFT Session opened (active=3)
+SWIFT Session opened (active=4)
+SWIFT Session opened (active=5)
+SWIFT Session opened (active=6)
+SWIFT Session opened (active=7)
+SWIFT Session opened (active=8)
+SWIFT Session opened (active=9)
+SWIFT Session opened (active=10)
+SWIFT Session opened (active=11)
+SWIFT Session opened (active=12)
+SWIFT Session opened (active=13)
+SWIFT Session opened (active=14)
+SWIFT Session opened (active=15)
+SWIFT Session opened (active=16)
+    usb_swift_test.go:144: Go home + production Swift USB-core concurrent integrity: home=12583734 phone=50334936 bytes (host fixtures, NOT device speed)
+SWIFT Session opened (active=17)
+SWIFT Session opened (active=18)
+SWIFT Session opened (active=19)
+SWIFT Session opened (active=20)
+SWIFT Session opened (active=21)
+SWIFT Session opened (active=22)
+SWIFT Session opened (active=23)
+SWIFT Session opened (active=24)
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.072s
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.076s
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.077s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.080s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.083s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.083s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.091s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.091s
+--- PASS: TestGoRelayThroughProductionSwiftCore (0.76s)
+=== RUN   TestGoRelayThroughProductionSwiftCore
+SWIFT Session opened (active=1)
+SWIFT Session opened (active=2)
+SWIFT Session opened (active=3)
+SWIFT Session opened (active=4)
+SWIFT Session opened (active=5)
+SWIFT Session opened (active=6)
+SWIFT Session opened (active=7)
+SWIFT Session opened (active=8)
+SWIFT Session opened (active=9)
+SWIFT Session opened (active=10)
+SWIFT Session opened (active=11)
+SWIFT Session opened (active=12)
+SWIFT Session opened (active=13)
+SWIFT Session opened (active=14)
+SWIFT Session opened (active=15)
+SWIFT Session opened (active=16)
+    usb_swift_test.go:144: Go home + production Swift USB-core concurrent integrity: home=12583734 phone=50334936 bytes (host fixtures, NOT device speed)
+SWIFT Session opened (active=17)
+SWIFT Session opened (active=18)
+SWIFT Session opened (active=19)
+SWIFT Session opened (active=20)
+SWIFT Session opened (active=21)
+SWIFT Session opened (active=22)
+SWIFT Session opened (active=23)
+SWIFT Session opened (active=24)
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.097s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.097s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.118s
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.165s
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.167s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.173s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.178s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.176s
+--- PASS: TestGoRelayThroughProductionSwiftCore (0.80s)
+=== RUN   TestGoRelayThroughProductionSwiftCore
+SWIFT Session opened (active=1)
+SWIFT Session opened (active=2)
+SWIFT Session opened (active=3)
+SWIFT Session opened (active=4)
+SWIFT Session opened (active=5)
+SWIFT Session opened (active=6)
+SWIFT Session opened (active=7)
+SWIFT Session opened (active=8)
+SWIFT Session opened (active=9)
+SWIFT Session opened (active=10)
+SWIFT Session opened (active=11)
+SWIFT Session opened (active=12)
+SWIFT Session opened (active=13)
+SWIFT Session opened (active=14)
+SWIFT Session opened (active=15)
+SWIFT Session opened (active=16)
+    usb_swift_test.go:144: Go home + production Swift USB-core concurrent integrity: home=12583734 phone=50334936 bytes (host fixtures, NOT device speed)
+SWIFT Session opened (active=17)
+SWIFT Session opened (active=18)
+SWIFT Session opened (active=19)
+SWIFT Session opened (active=20)
+SWIFT Session opened (active=21)
+SWIFT Session opened (active=22)
+SWIFT Session opened (active=23)
+SWIFT Session opened (active=24)
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.050s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.053s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.053s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.058s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.058s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.058s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.058s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.064s
+--- PASS: TestGoRelayThroughProductionSwiftCore (0.77s)
+=== RUN   TestGoRelayThroughProductionSwiftCore
+SWIFT Session opened (active=1)
+SWIFT Session opened (active=2)
+SWIFT Session opened (active=3)
+SWIFT Session opened (active=4)
+SWIFT Session opened (active=5)
+SWIFT Session opened (active=6)
+SWIFT Session opened (active=7)
+SWIFT Session opened (active=8)
+SWIFT Session opened (active=9)
+SWIFT Session opened (active=10)
+SWIFT Session opened (active=11)
+SWIFT Session opened (active=12)
+SWIFT Session opened (active=13)
+SWIFT Session opened (active=14)
+SWIFT Session opened (active=15)
+SWIFT Session opened (active=16)
+    usb_swift_test.go:144: Go home + production Swift USB-core concurrent integrity: home=12583734 phone=50334936 bytes (host fixtures, NOT device speed)
+SWIFT Session opened (active=17)
+SWIFT Session opened (active=18)
+SWIFT Session opened (active=19)
+SWIFT Session opened (active=20)
+SWIFT Session opened (active=21)
+SWIFT Session opened (active=22)
+SWIFT Session opened (active=23)
+SWIFT Session opened (active=24)
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.051s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.057s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.058s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.058s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.059s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.061s
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.064s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.065s
+--- PASS: TestGoRelayThroughProductionSwiftCore (0.48s)
+=== RUN   TestGoRelayThroughProductionSwiftCore
+SWIFT Session opened (active=1)
+SWIFT Session opened (active=2)
+SWIFT Session opened (active=3)
+SWIFT Session opened (active=4)
+SWIFT Session opened (active=5)
+SWIFT Session opened (active=6)
+SWIFT Session opened (active=7)
+SWIFT Session opened (active=8)
+SWIFT Session opened (active=9)
+SWIFT Session opened (active=10)
+SWIFT Session opened (active=11)
+SWIFT Session opened (active=12)
+SWIFT Session opened (active=13)
+SWIFT Session opened (active=14)
+SWIFT Session opened (active=15)
+SWIFT Session opened (active=16)
+    usb_swift_test.go:144: Go home + production Swift USB-core concurrent integrity: home=12583734 phone=50334936 bytes (host fixtures, NOT device speed)
+SWIFT Session opened (active=17)
+SWIFT Session opened (active=18)
+SWIFT Session opened (active=19)
+SWIFT Session opened (active=20)
+SWIFT Session opened (active=21)
+SWIFT Session opened (active=22)
+SWIFT Session opened (active=23)
+SWIFT Session opened (active=24)
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.064s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.066s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.067s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.074s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.076s
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.079s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.079s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.081s
+--- PASS: TestGoRelayThroughProductionSwiftCore (0.47s)
+=== RUN   TestGoRelayThroughProductionSwiftCore
+SWIFT Session opened (active=1)
+SWIFT Session opened (active=2)
+SWIFT Session opened (active=3)
+SWIFT Session opened (active=4)
+SWIFT Session opened (active=5)
+SWIFT Session opened (active=6)
+SWIFT Session opened (active=7)
+SWIFT Session opened (active=8)
+SWIFT Session opened (active=9)
+SWIFT Session opened (active=10)
+SWIFT Session opened (active=11)
+SWIFT Session opened (active=12)
+SWIFT Session opened (active=13)
+SWIFT Session opened (active=14)
+SWIFT Session opened (active=15)
+SWIFT Session opened (active=16)
+    usb_swift_test.go:144: Go home + production Swift USB-core concurrent integrity: home=12583734 phone=50334936 bytes (host fixtures, NOT device speed)
+SWIFT Session opened (active=17)
+SWIFT Session opened (active=18)
+SWIFT Session opened (active=19)
+SWIFT Session opened (active=20)
+SWIFT Session opened (active=21)
+SWIFT Session opened (active=22)
+SWIFT Session opened (active=23)
+SWIFT Session opened (active=24)
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.048s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.048s
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.049s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.051s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.051s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.052s
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.055s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.059s
+--- PASS: TestGoRelayThroughProductionSwiftCore (0.45s)
+=== RUN   TestGoRelayThroughProductionSwiftCore
+SWIFT Session opened (active=1)
+SWIFT Session opened (active=2)
+SWIFT Session opened (active=3)
+SWIFT Session opened (active=4)
+SWIFT Session opened (active=5)
+SWIFT Session opened (active=6)
+SWIFT Session opened (active=7)
+SWIFT Session opened (active=8)
+SWIFT Session opened (active=9)
+SWIFT Session opened (active=10)
+SWIFT Session opened (active=11)
+SWIFT Session opened (active=12)
+SWIFT Session opened (active=13)
+SWIFT Session opened (active=14)
+SWIFT Session opened (active=15)
+SWIFT Session opened (active=16)
+    usb_swift_test.go:144: Go home + production Swift USB-core concurrent integrity: home=12583734 phone=50334936 bytes (host fixtures, NOT device speed)
+SWIFT Session opened (active=17)
+SWIFT Session opened (active=18)
+SWIFT Session opened (active=19)
+SWIFT Session opened (active=20)
+SWIFT Session opened (active=21)
+SWIFT Session opened (active=22)
+SWIFT Session opened (active=23)
+SWIFT Session opened (active=24)
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.047s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.048s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.048s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.052s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.052s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.052s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.053s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.058s
+--- PASS: TestGoRelayThroughProductionSwiftCore (0.42s)
+=== RUN   TestGoRelayThroughProductionSwiftCore
+SWIFT Session opened (active=1)
+SWIFT Session opened (active=2)
+SWIFT Session opened (active=3)
+SWIFT Session opened (active=4)
+SWIFT Session opened (active=5)
+SWIFT Session opened (active=6)
+SWIFT Session opened (active=7)
+SWIFT Session opened (active=8)
+SWIFT Session opened (active=9)
+SWIFT Session opened (active=10)
+SWIFT Session opened (active=11)
+SWIFT Session opened (active=12)
+SWIFT Session opened (active=13)
+SWIFT Session opened (active=14)
+SWIFT Session opened (active=15)
+SWIFT Session opened (active=16)
+    usb_swift_test.go:144: Go home + production Swift USB-core concurrent integrity: home=12583734 phone=50334936 bytes (host fixtures, NOT device speed)
+SWIFT Session opened (active=17)
+SWIFT Session opened (active=18)
+SWIFT Session opened (active=19)
+SWIFT Session opened (active=20)
+SWIFT Session opened (active=21)
+SWIFT Session opened (active=22)
+SWIFT Session opened (active=23)
+SWIFT Session opened (active=24)
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.052s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.058s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.059s
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.061s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.061s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.064s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.064s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.067s
+--- PASS: TestGoRelayThroughProductionSwiftCore (0.43s)
+=== RUN   TestGoRelayThroughProductionSwiftCore
+SWIFT Session opened (active=1)
+SWIFT Session opened (active=2)
+SWIFT Session opened (active=3)
+SWIFT Session opened (active=4)
+SWIFT Session opened (active=5)
+SWIFT Session opened (active=6)
+SWIFT Session opened (active=7)
+SWIFT Session opened (active=8)
+SWIFT Session opened (active=9)
+SWIFT Session opened (active=10)
+SWIFT Session opened (active=11)
+SWIFT Session opened (active=12)
+SWIFT Session opened (active=13)
+SWIFT Session opened (active=14)
+SWIFT Session opened (active=15)
+SWIFT Session opened (active=16)
+    usb_swift_test.go:144: Go home + production Swift USB-core concurrent integrity: home=12583734 phone=50334936 bytes (host fixtures, NOT device speed)
+SWIFT Session opened (active=17)
+SWIFT Session opened (active=18)
+SWIFT Session opened (active=19)
+SWIFT Session opened (active=20)
+SWIFT Session opened (active=21)
+SWIFT Session opened (active=22)
+SWIFT Session opened (active=23)
+SWIFT Session opened (active=24)
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.053s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.053s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.052s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.055s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.055s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.058s
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.058s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.058s
+--- PASS: TestGoRelayThroughProductionSwiftCore (0.42s)
+=== RUN   TestGoRelayThroughProductionSwiftCore
+SWIFT Session opened (active=1)
+SWIFT Session opened (active=2)
+SWIFT Session opened (active=3)
+SWIFT Session opened (active=4)
+SWIFT Session opened (active=5)
+SWIFT Session opened (active=6)
+SWIFT Session opened (active=7)
+SWIFT Session opened (active=8)
+SWIFT Session opened (active=9)
+SWIFT Session opened (active=10)
+SWIFT Session opened (active=11)
+SWIFT Session opened (active=12)
+SWIFT Session opened (active=13)
+SWIFT Session opened (active=14)
+SWIFT Session opened (active=15)
+SWIFT Session opened (active=16)
+    usb_swift_test.go:144: Go home + production Swift USB-core concurrent integrity: home=12583734 phone=50334936 bytes (host fixtures, NOT device speed)
+SWIFT Session opened (active=17)
+SWIFT Session opened (active=18)
+SWIFT Session opened (active=19)
+SWIFT Session opened (active=20)
+SWIFT Session opened (active=21)
+SWIFT Session opened (active=22)
+SWIFT Session opened (active=23)
+SWIFT Session opened (active=24)
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.050s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.056s
+SWIFT half-close failed: POSIXErrorCode(rawValue: 57): Socket is not connected; up=537 down=2101771 elapsed=0.055s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.059s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.064s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.064s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.066s
+SWIFT tunnel complete; up=537 down=2101771 elapsed=0.067s
+--- PASS: TestGoRelayThroughProductionSwiftCore (0.44s)
+PASS
+ok  	tetherflow-desktop/integration	6.776s

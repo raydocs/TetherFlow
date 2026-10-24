@@ -18,6 +18,7 @@ type bufferedConn struct {
 }
 
 func (c *bufferedConn) Read(p []byte) (int, error) { return c.reader.Read(p) }
+func (c *bufferedConn) CloseWrite() error          { return closeWrite(c.Conn) }
 
 func (r *Relay) connectPhone(ctx context.Context, dial DialContextFunc, target string) (_ net.Conn, err error) {
 	ctx, cancel := context.WithCancel(ctx)
