@@ -23,3 +23,13 @@ Windows Steam 下载同时利用家庭 Wi-Fi（约 200–300 Mbps）与 iPhone �
 2. Mac host 测试/无签名 iOS 构建/Windows 交叉编译分开记录。
 3. 实机测速前不得宣称 1200 Mbps 或双网提速已达标。
 4. 不收集 Steam 凭据，不做 TLS 解密，不绕过正版校验。
+
+## 2026-10-24 自动验证进展
+- 本地主线程重跑：Go 三个新包 race tests 连续3次通过；go vet通过；Windows amd64交叉编译通过。
+- 主线程重跑 Swift17测试、Python5测试通过。
+- 已推送隔离 WIP 分支，未改 main、未发布、未创建 PR。独立 GPT xhigh worktree审查中。
+- GitHub Windows/macOS真实托管 runner验证已启动（首个run40081992644）；不替代物理手机/Steam。
+- Devin iOS云验证请求被403拒绝：organization billing error `out_of_quota`。未启动VM，不重复耗费重试；模拟器UI证据缺失，不在本机安装运行时。
+- 加强guardian：父进程退出监控改用启动前继承的Windows进程句柄，消除“子进程还没OpenProcess父进程已退出”的窗口；对应Windows专用子进程测试已添加。
+- GitHub首轮40081992644已确认：Windows真实执行race测试/Go vet/构建、PowerShell解析和只读doctor通过；macOS17项Swift和5项Python通过。此时commit=f1b86fe，后续修复需重跑。
+- 新增真正跨语言集成（生产Swift核心+Go双出口，非模拟器）：初次有7次unexpected EOF（其余2轮通过），加fixture日志后3/3和20/20通过，未修改生产行为/期望值。初次失败根因未知，明确保留可靠性风险，并加入CI重复10轮。

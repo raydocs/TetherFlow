@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"tetherflow-desktop/internal/steamsetup"
 	"unsafe"
@@ -39,21 +40,50 @@ func flushDNS() error {
 	}
 	return exec.Command(filepath.Join(dir, "System32", "ipconfig.exe"), "/flushdns").Run()
 }
-func prepareGuardian(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000}
+
+// Open the parent handle before CreateProcess and inherit it into the guardian.
+// Unlike reopening a PID after launch, this also survives immediate parent exit.
+func prepareGuardian(cmd *exec.Cmd) (func(), error) {
+	h, err := syscall.OpenProcess(syscall.SYNCHRONIZE|syscall.PROCESS_QUERY_INFORMATION, false, uint32(os.Getpid()))
+	if err != nil {
+		return nil, err
+	}
+	if err = syscall.SetHandleInformation(h, syscall.HANDLE_FLAG_INHERIT, syscall.HANDLE_FLAG_INHERIT); err != nil {
+		syscall.CloseHandle(h)
+		return nil, err
+	}
+	cmd.Args = append(cmd.Args, "--parent-handle", strconv.FormatUint(uint64(h), 10))
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000, AdditionalInheritedHandles: []syscall.Handle{h}}
+	return func() { _ = syscall.CloseHandle(h) }, nil
 }
-func guard(pid int, lease string) error {
-	if pid <= 0 || pid == os.Getpid() {
-		return errors.New("invalid guardian parent")
+func waitParent(pid int, handle uint64) error {
+	if pid <= 0 || pid == os.Getpid() || handle == 0 {
+		return errors.New("invalid guardian parent handle")
 	}
-	p, e := os.FindProcess(pid)
-	if e != nil {
-		return fmt.Errorf("cannot hold parent handle: %w", e)
+	h := syscall.Handle(handle)
+	defer syscall.CloseHandle(h)
+	proc := syscall.NewLazyDLL("kernel32.dll").NewProc("GetProcessId")
+	actual, _, err := proc.Call(uintptr(h))
+	if actual == 0 {
+		return fmt.Errorf("invalid inherited process handle: %w", err)
 	}
-	// Windows FindProcess holds a process handle: PID reuse cannot change the waited process.
-	if _, e = p.Wait(); e != nil {
-		return fmt.Errorf("cannot wait for parent: %w", e)
+	if actual != uintptr(pid) {
+		return errors.New("inherited process handle identity mismatch")
 	}
+	result, err := syscall.WaitForSingleObject(h, syscall.INFINITE)
+	if err != nil {
+		return fmt.Errorf("cannot wait for parent: %w", err)
+	}
+	if result != syscall.WAIT_OBJECT_0 {
+		return fmt.Errorf("unexpected parent wait result: %d", result)
+	}
+	return nil
+}
+func guard(pid int, lease string, handle uint64) error {
+	if e := waitParent(pid, handle); e != nil {
+		return e
+	}
+
 	path, e := hostsPath()
 	if e != nil {
 		return e

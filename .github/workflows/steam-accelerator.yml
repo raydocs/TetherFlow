@@ -7,6 +7,8 @@ on:
       - 'desktop/cmd/steam-accelerator/**'
       - 'desktop/steam-tools/**'
       - 'ios/**'
+      - 'integration/**'
+      - 'desktop/integration/**'
       - '.github/workflows/steam-accelerator.yml'
   workflow_dispatch:
 permissions:
@@ -55,3 +57,19 @@ jobs:
         run: |
           swift test --package-path ios
           python3 -m unittest discover -s ios/tools -p 'test_*.py' -v
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          cache: false
+      - name: Cross-language Go to production Swift transport tests (host only)
+        run: TF_INTEGRATION_COUNT=10 ./integration/verify-host.sh
+      - name: Unsigned generic iOS device build (not simulator or signed install)
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          ios/tools/build-device.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tetherflow-ios-unsigned-build-evidence
+          path: ios/logs/xcode*.log
+          retention-days: 7

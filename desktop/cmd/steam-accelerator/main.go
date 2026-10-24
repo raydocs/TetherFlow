@@ -43,11 +43,12 @@ func run() error {
 	extraHosts := flag.String("allow-hosts", "", "comma-separated explicit CDN suffixes; replaces default allowlist")
 	guardian := flag.Bool("guardian", false, "internal recovery process")
 	parent := flag.Int("parent", 0, "internal parent process")
+	parentHandle := flag.Uint64("parent-handle", 0, "internal inherited parent handle")
 	lease := flag.String("lease", "", "internal recovery lease")
 	recoverLease := flag.String("recover-lease", "", "remove only a matching stale session entry; does not start relay")
 	flag.Parse()
 	if *guardian {
-		return guard(*parent, *lease)
+		return guard(*parent, *lease, *parentHandle)
 	}
 	if *doctor {
 		return diagnose()
@@ -137,8 +138,13 @@ func run() error {
 			return e
 		}
 		command := exec.Command(exe, "--guardian", "--parent", strconv.Itoa(os.Getpid()), "--lease", session)
-		prepareGuardian(command)
-		if e = command.Start(); e != nil {
+		releaseHandle, prepErr := prepareGuardian(command)
+		if prepErr != nil {
+			return fmt.Errorf("recovery guardian setup; no hosts changes: %w", prepErr)
+		}
+		e = command.Start()
+		releaseHandle()
+		if e != nil {
 			return fmt.Errorf("recovery guardian could not start; no hosts changes: %w", e)
 		}
 		go func() {
