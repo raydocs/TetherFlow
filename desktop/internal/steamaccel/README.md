@@ -16,6 +16,10 @@ CONNECT handshakes, active requests and copy buffers are bounded. Only
 pre-response failures may fail over; interrupted bodies abort rather than append
 a second origin response. Downstream cancellation does not damage path health.
 Use `Relay.Server` or enforce equivalent HTTP parser/deadline bounds yourself.
+The phone has a separate total socket budget (default/max 32, optionally smaller
+via `MaxPhoneConnections`), including pending dials and idle keepalive pools.
+Local capacity exhaustion does not cool down the phone; idle-host eviction and
+home fallback handle CDN rotation without disabling keepalive.
 
 **Limitations:** HTTP ingress only, no TLS interception/SNI passthrough; modern
 Steam cache discovery/adoption is unproven. A hosts/DNS override needs an
@@ -29,7 +33,7 @@ Steam adoption and actual speed gains require real Windows+iPhone evidence.
 Checks, from `desktop/`:
 
 ```sh
-go test -race ./internal/steamaccel -count=1
+go test -race ./internal/steamaccel -count=3
 go vet ./internal/steamaccel
 GOOS=windows GOARCH=amd64 go test ./internal/steamaccel -run '^$' -exec=/usr/bin/true
 ```

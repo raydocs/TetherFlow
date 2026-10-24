@@ -33,6 +33,14 @@ Config (all optional except HomeIPv4 and PhoneToken):
   `HeaderTimeout time.Duration` (15s), `IdleTimeout time.Duration` (30s),
   `DialTimeout time.Duration` (10s), `RequestTimeout time.Duration` (30m),
   `FailureCooldown time.Duration` (5s).
+- `MaxPhoneConnections int` (32): optional total phone socket budget; zero uses 32,
+  explicit values must be 1..32. Reservations cover dialing (including detached
+  transport dials), active transfers and all idle per-host keepalive pools until
+  socket close/error. Keepalive remains enabled; when full, idle connections are
+  evicted so rotating CDN hosts need not wait for `IdleTimeout`. If still full,
+  the request may fall back to home without a phone error/cooldown. This is a
+  local socket bound, not an acknowledgement of the proxy's asynchronous FIN
+  cleanup. `Close` cancels pending dials and closes active and idle phone sockets.
 - `LookupIP func(context.Context, string) ([]net.IP, error)`: trusted resolver seam.
   Default uses system DNS; **hosts/lancache DNS overrides require an independent
   public-origin resolver here**, otherwise private answers intentionally fail closed.

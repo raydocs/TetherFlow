@@ -20,7 +20,25 @@ type bufferedConn struct {
 func (c *bufferedConn) Read(p []byte) (int, error) { return c.reader.Read(p) }
 
 func (r *Relay) connectPhone(ctx context.Context, dial DialContextFunc, target string) (_ net.Conn, err error) {
+	ctx, cancel := context.WithCancel(ctx)
+	stopRelay := context.AfterFunc(r.ctx, cancel)
+	defer func() { stopRelay(); cancel() }()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := r.reservePhone(); err != nil {
+		return nil, err
+	}
 	conn, err := dial(ctx, "tcp", r.cfg.PhoneProxyAddr)
+	if err != nil {
+		// A failing trusted dial seam may still return a socket.
+		if conn != nil {
+			conn.Close()
+		}
+		r.phoneSockets.release(nil)
+		return nil, err
+	}
+	conn, err = r.phoneSockets.adopt(conn)
 	if err != nil {
 		return nil, err
 	}

@@ -83,6 +83,9 @@ func TestCONNECTRejectsBadAndUnboundedHeaders(t *testing.T) {
 				t.Fatal("bad CONNECT accepted")
 			}
 			<-done
+			if phoneUsed(r) != 0 {
+				t.Fatal("rejected CONNECT leaked socket capacity")
+			}
 			if strings.Contains(err.Error(), c.PhoneToken) {
 				t.Error("token leaked in error")
 			}
@@ -120,6 +123,9 @@ func TestCONNECTCancellationClosesBlockedSocket(t *testing.T) {
 		t.Fatal("CONNECT cancellation stalled")
 	}
 	<-serverDone
+	if phoneUsed(r) != 0 {
+		t.Fatal("canceled CONNECT leaked socket capacity")
+	}
 }
 
 func TestCONNECTHeaderTimeout(t *testing.T) {
@@ -135,4 +141,7 @@ func TestCONNECTHeaderTimeout(t *testing.T) {
 		t.Fatal("missing header timeout")
 	}
 	<-done
+	if phoneUsed(r) != 0 {
+		t.Fatal("timed out CONNECT leaked socket capacity")
+	}
 }

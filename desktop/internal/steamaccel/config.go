@@ -18,6 +18,8 @@ type LookupIPFunc func(context.Context, string) ([]net.IP, error)
 // Config contains production settings and trusted test/integration seams.
 // See API.md for defaults, DNS override caveats and seam security obligations.
 type Config struct {
+	// MaxPhoneConnections bounds dialing, active and idle phone sockets (default/max 32).
+	MaxPhoneConnections                                                      int
 	HomeIPv4                                                                 string
 	AllowHomePeer                                                            bool
 	PhoneProxyAddr                                                           string
@@ -70,6 +72,12 @@ func defaults(c Config) (Config, error) {
 	c.AllowedHosts = hosts
 	if c.MaxConcurrent == 0 {
 		c.MaxConcurrent = 64
+	}
+	if c.MaxPhoneConnections == 0 {
+		c.MaxPhoneConnections = 32
+	}
+	if c.MaxPhoneConnections < 1 || c.MaxPhoneConnections > 32 {
+		return c, errors.New("MaxPhoneConnections must be in 1..32")
 	}
 	if c.MaxHeaderBytes == 0 {
 		c.MaxHeaderBytes = 32 << 10

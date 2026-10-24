@@ -26,15 +26,17 @@ type path struct {
 }
 
 // Relay is safe for concurrent use. Configuration and injected seams are immutable
-// after New. Close cancels in-flight work and closes idle transport connections.
+// after New. Close cancels in-flight work and closes idle transport connections
+// as well as all active phone sockets.
 type Relay struct {
-	cfg       Config
-	mu        sync.Mutex
-	paths     [2]path
-	slots     chan struct{}
-	dialSlots chan struct{}
-	ctx       context.Context
-	cancel    context.CancelFunc
+	cfg          Config
+	mu           sync.Mutex
+	paths        [2]path
+	slots        chan struct{}
+	dialSlots    chan struct{}
+	phoneSockets phoneBudget
+	ctx          context.Context
+	cancel       context.CancelFunc
 }
 
 func New(config Config) (*Relay, error) {
@@ -44,6 +46,7 @@ func New(config Config) (*Relay, error) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &Relay{cfg: c, slots: make(chan struct{}, c.MaxConcurrent), dialSlots: make(chan struct{}, c.MaxConcurrent), ctx: ctx, cancel: cancel}
+	r.phoneSockets = phoneBudget{limit: c.MaxPhoneConnections, conns: make(map[*phoneConn]struct{})}
 	homeDial := c.HomeDialContext
 	if homeDial == nil {
 		d := &net.Dialer{Timeout: c.DialTimeout, KeepAlive: 30 * time.Second, LocalAddr: &net.TCPAddr{IP: net.ParseIP(c.HomeIPv4)}}
@@ -63,7 +66,10 @@ func New(config Config) (*Relay, error) {
 	}
 	phone := c.PhoneTransport
 	if phone == nil {
-		phone = r.transport(r.originDial(phoneDial, true))
+		t := r.transport(r.originDial(phoneDial, true))
+		t.MaxIdleConns = c.MaxPhoneConnections
+		t.MaxIdleConnsPerHost = c.MaxPhoneConnections
+		phone = t
 	}
 	r.paths[0] = path{weight: c.HomeWeight, transport: home}
 	r.paths[1] = path{weight: c.PhoneWeight, transport: phone}
@@ -86,6 +92,7 @@ func (r *Relay) Snapshot() Status {
 
 func (r *Relay) Close() error {
 	r.cancel()
+	r.phoneSockets.close()
 	for i := range r.paths {
 		if c, ok := r.paths[i].transport.(interface{ CloseIdleConnections() }); ok {
 			c.CloseIdleConnections()
@@ -239,7 +246,8 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if resp != nil && resp.Body != nil {
 				resp.Body.Close()
 			}
-			r.finish(i, req.Context().Err() == nil && r.ctx.Err() == nil && !errors.Is(roundErr, errDialBusy), 0)
+			localCapacity := errors.Is(roundErr, errDialBusy) || errors.Is(roundErr, errPhoneCapacity)
+			r.finish(i, req.Context().Err() == nil && r.ctx.Err() == nil && !localCapacity, 0)
 			if errors.Is(roundErr, errDialBusy) {
 				http.Error(w, "relay dial capacity exhausted", http.StatusServiceUnavailable)
 				return
@@ -251,6 +259,10 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			previous = i
 			if attempt == 0 {
 				continue
+			}
+			if localCapacity {
+				http.Error(w, "relay socket capacity exhausted", http.StatusServiceUnavailable)
+				return
 			}
 			http.Error(w, "uplinks unavailable", http.StatusBadGateway)
 			return
@@ -367,7 +379,7 @@ func (r *Relay) originDial(dial DialContextFunc, phone bool) DialContextFunc {
 				return conn, nil
 			}
 			last = err
-			if ctx.Err() != nil {
+			if ctx.Err() != nil || errors.Is(err, errPhoneCapacity) {
 				break
 			}
 		}
