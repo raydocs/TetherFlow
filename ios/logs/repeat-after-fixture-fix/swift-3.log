@@ -1,0 +1,53 @@
+Building for debugging...
+[0/2] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.11s)
+Test Suite 'All tests' started at 2026-10-24 03:23:43.492.
+Test Suite 'TetherFlowIOSPackageTests.xctest' started at 2026-10-24 03:23:43.493.
+Test Suite 'ProtocolTests' started at 2026-10-24 03:23:43.493.
+Test Case '-[ProxyCoreTests.ProtocolTests testAuthenticationAndDiagnosticBounds]' started.
+Test Case '-[ProxyCoreTests.ProtocolTests testAuthenticationAndDiagnosticBounds]' passed (0.001 seconds).
+Test Case '-[ProxyCoreTests.ProtocolTests testAuthorityAndPortRestrictions]' started.
+Test Case '-[ProxyCoreTests.ProtocolTests testAuthorityAndPortRestrictions]' passed (0.000 seconds).
+Test Case '-[ProxyCoreTests.ProtocolTests testEverySplitBoundaryAndOpaqueTrailingData]' started.
+Test Case '-[ProxyCoreTests.ProtocolTests testEverySplitBoundaryAndOpaqueTrailingData]' passed (0.010 seconds).
+Test Case '-[ProxyCoreTests.ProtocolTests testExactHeaderLimitAndOverLimitWithTerminator]' started.
+Test Case '-[ProxyCoreTests.ProtocolTests testExactHeaderLimitAndOverLimitWithTerminator]' passed (0.002 seconds).
+Test Case '-[ProxyCoreTests.ProtocolTests testIncompleteHeaderLimitAndOversizedChunk]' started.
+Test Case '-[ProxyCoreTests.ProtocolTests testIncompleteHeaderLimitAndOversizedChunk]' passed (0.000 seconds).
+Test Case '-[ProxyCoreTests.ProtocolTests testMalformedAndAmbiguousFramingRejected]' started.
+Test Case '-[ProxyCoreTests.ProtocolTests testMalformedAndAmbiguousFramingRejected]' passed (0.000 seconds).
+Test Case '-[ProxyCoreTests.ProtocolTests testOneByteChunks]' started.
+Test Case '-[ProxyCoreTests.ProtocolTests testOneByteChunks]' passed (0.000 seconds).
+Test Case '-[ProxyCoreTests.ProtocolTests testTokenAndChunkConfiguration]' started.
+Test Case '-[ProxyCoreTests.ProtocolTests testTokenAndChunkConfiguration]' passed (0.007 seconds).
+Test Suite 'ProtocolTests' passed at 2026-10-24 03:23:43.514.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.021 (0.021) seconds
+Test Suite 'TransportTests' started at 2026-10-24 03:23:43.514.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' started.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTActualTCPBidirectionalPayloadAndHalfClose]' passed (0.213 seconds).
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTPort80ActualTCP]' started.
+Test Case '-[ProxyCoreTests.TransportTests testCONNECTPort80ActualTCP]' passed (0.002 seconds).
+Test Case '-[ProxyCoreTests.TransportTests testDeniedEgressNeverReturnsCONNECT200]' started.
+Test Case '-[ProxyCoreTests.TransportTests testDeniedEgressNeverReturnsCONNECT200]' passed (0.001 seconds).
+Test Case '-[ProxyCoreTests.TransportTests testDiagnosticActualTCPExactBytesAndEOF]' started.
+Test Case '-[ProxyCoreTests.TransportTests testDiagnosticActualTCPExactBytesAndEOF]' passed (0.205 seconds).
+Test Case '-[ProxyCoreTests.TransportTests testProductionCellularPolicyRejectsLoopbackPath]' started.
+Test Case '-[ProxyCoreTests.TransportTests testProductionCellularPolicyRejectsLoopbackPath]' passed (0.001 seconds).
+Test Case '-[ProxyCoreTests.TransportTests testStopCancelsIncompleteRequest]' started.
+Test Case '-[ProxyCoreTests.TransportTests testStopCancelsIncompleteRequest]' passed (0.001 seconds).
+Test Case '-[ProxyCoreTests.TransportTests testStopRacingAcceptanceClosesSocket]' started.
+Test Case '-[ProxyCoreTests.TransportTests testStopRacingAcceptanceClosesSocket]' passed (0.004 seconds).
+Test Case '-[ProxyCoreTests.TransportTests testThirtyTwoSessionsAndExcessConnectionRejection]' started.
+Test Case '-[ProxyCoreTests.TransportTests testThirtyTwoSessionsAndExcessConnectionRejection]' passed (0.032 seconds).
+Test Case '-[ProxyCoreTests.TransportTests testUnauthorizedAndLimitsOnWire]' started.
+Test Case '-[ProxyCoreTests.TransportTests testUnauthorizedAndLimitsOnWire]' passed (0.003 seconds).
+Test Suite 'TransportTests' passed at 2026-10-24 03:23:43.977.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.462 (0.462) seconds
+Test Suite 'TetherFlowIOSPackageTests.xctest' passed at 2026-10-24 03:23:43.977.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.482 (0.484) seconds
+Test Suite 'All tests' passed at 2026-10-24 03:23:43.977.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.482 (0.485) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

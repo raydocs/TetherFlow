@@ -1,0 +1,18 @@
+warning: 'ios': Source files for target ProxyCoreTests should be located under 'Tests/ProxyCoreTests', 'Tests', or a custom sources path can be set with the 'path' property in Package.swift
+Building for debugging...
+[0/2] Write sources
+[1/2] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Emitting module ProxyCore
+[4/5] Compiling ProxyCore ProxyServer.swift
+/Users/ruirui/TetherFlow/ios/Sources/ProxyCore/ProxyServer.swift:194:35: warning: 'where' only applies to the second pattern match in this 'case'
+192 |         case .diagnostic where age >= 60: cancel(reason: "diagnostic deadline")
+193 |         case .closing where age >= 5: cancel(reason: "close deadline")
+194 |         case .tunnel, .diagnostic where idle >= 30: cancel(reason: "idle timeout")
+    |              |        |           `- warning: 'where' only applies to the second pattern match in this 'case'
+    |              |        `- note: disambiguate by adding a line break between them if this is desired
+    |              `- note: duplicate the 'where' on both patterns to check both patterns
+195 |         default: break
+196 |         }
+[5/5] Compiling ProxyCore HTTPProtocol.swift
+Build complete! (2.96s)
+error: no tests found; create a target in the 'Tests' directory

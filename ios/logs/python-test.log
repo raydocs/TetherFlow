@@ -1,0 +1,10 @@
+test_cli_detects_corruption (test_smoke.SmokeTests.test_cli_detects_corruption) ... ok
+test_cli_http80_connect (test_smoke.SmokeTests.test_cli_http80_connect) ... ok
+test_cli_verified_download (test_smoke.SmokeTests.test_cli_verified_download) ... ok
+test_invalid_responses (test_smoke.SmokeTests.test_invalid_responses) ... ok
+test_partial_header_reader (test_smoke.SmokeTests.test_partial_header_reader) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.374s
+
+OK

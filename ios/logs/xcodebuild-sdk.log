@@ -1,0 +1,10 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project ios/TetherFlowIOS.xcodeproj -scheme TetherFlowIOS -sdk iphoneos -arch arm64 -derivedDataPath ios/DerivedData CODE_SIGNING_ALLOWED=NO build
+
+Build settings from command line:
+    ARCHS = arm64
+    CODE_SIGNING_ALLOWED = NO
+    SDKROOT = iphoneos26.5
+
+2026-10-24 03:16:45.844 xcodebuild[60601:10675109] Writing error result bundle to /var/folders/v4/1r21hprs5j97y_ky8qbhjvrw0000gn/T/ResultBundle_2026-24-10_03-16-0045.xcresult
+xcodebuild: error: Found no destinations for the scheme 'TetherFlowIOS' and action build.

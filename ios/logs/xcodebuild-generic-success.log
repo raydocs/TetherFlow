@@ -1,0 +1,367 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project TetherFlowIOS.xcodeproj -scheme TetherFlowIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO build
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (1 target)
+    Target 'TetherFlowIOS' in project 'TetherFlowIOS' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: 1acf17567e2c8c3f1c9c1a95267c32ab
+Build description path: /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/XCBuildData/1acf17567e2c8c3f1c9c1a95267c32ab.xcbuilddata
+CreateBuildDirectory /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex
+    cd /Users/ruirui/TetherFlow/ios/TetherFlowIOS.xcodeproj
+    builtin-create-build-directory /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex
+
+CreateBuildDirectory /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products
+    cd /Users/ruirui/TetherFlow/ios/TetherFlowIOS.xcodeproj
+    builtin-create-build-directory /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products
+
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk /Users/ruirui/TetherFlow/ios/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-688ef53f1462e2c8f657fdc38a81448f32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache
+    cd /Users/ruirui/TetherFlow/ios/TetherFlowIOS.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -o /Users/ruirui/TetherFlow/ios/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-688ef53f1462e2c8f657fdc38a81448f32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache
+
+CreateBuildDirectory /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos
+    cd /Users/ruirui/TetherFlow/ios/TetherFlowIOS.xcodeproj
+    builtin-create-build-directory /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos
+
+CreateBuildDirectory /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+    cd /Users/ruirui/TetherFlow/ios/TetherFlowIOS.xcodeproj
+    builtin-create-build-directory /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules
+    cd /Users/ruirui/TetherFlow/ios/TetherFlowIOS.xcodeproj
+    builtin-create-build-directory /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos
+    cd /Users/ruirui/TetherFlow/ios/TetherFlowIOS.xcodeproj
+    builtin-create-build-directory /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS-1d256ec954b375771577fc77ed3d9e81-VFS-iphoneos/all-product-headers.yaml
+    cd /Users/ruirui/TetherFlow/ios/TetherFlowIOS.xcodeproj
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS-1d256ec954b375771577fc77ed3d9e81-VFS-iphoneos/all-product-headers.yaml
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-DebugDylibInstallName-normal-arm64.txt (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-DebugDylibInstallName-normal-arm64.txt
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-all-non-framework-target-headers.hmap (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-all-non-framework-target-headers.hmap
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-DebugDylibPath-normal-arm64.txt (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-DebugDylibPath-normal-arm64.txt
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS.DependencyStaticMetadataFileList (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS.hmap (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS.hmap
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-own-target-headers.hmap (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-own-target-headers.hmap
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/empty-TetherFlowIOS.plist (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/empty-TetherFlowIOS.plist
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS.DependencyMetadataFileList (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS.DependencyMetadataFileList
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-generated-files.hmap (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-generated-files.hmap
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-project-headers.hmap (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-project-headers.hmap
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-all-target-headers.hmap (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-all-target-headers.hmap
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS_const_extract_protocols.json (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.SwiftFileList (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.SwiftFileList
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.SwiftConstValuesFileList (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.LinkFileList (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.LinkFileList
+
+WriteAuxiliaryFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS-OutputFileMap.json (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    write-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS-OutputFileMap.json
+
+MkDir /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    /bin/mkdir -p /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app
+
+Ld /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/__preview.dylib normal (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0 -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -O0 -L/Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos -F/Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos -install_name @rpath/TetherFlowIOS.debug.dylib -Xlinker -dead_strip -rdynamic -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS_dependency_info.dat -o /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/__preview.dylib
+
+ProcessInfoPlistFile /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/Info.plist /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/empty-TetherFlowIOS.plist (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    builtin-infoPlistUtility /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/empty-TetherFlowIOS.plist -producttype com.apple.product-type.application -genpkginfo /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/PkgInfo -expandbuildsettings -format binary -platform iphoneos -requiredArchitecture arm64 -o /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/Info.plist
+
+SwiftDriver TetherFlowIOS normal arm64 com.apple.xcode.tools.swift.compiler (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name TetherFlowIOS -Onone @/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.SwiftFileList -DDEBUG -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -target arm64-apple-ios17.0 -g -module-cache-path /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/ruirui/TetherFlow/ios/DerivedData/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos -F /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos -c -j12 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/ruirui/TetherFlow/ios/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-688ef53f1462e2c8f657fdc38a81448f32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -output-file-map /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS_const_extract_protocols.json -Xcc -iquote -Xcc /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-generated-files.hmap -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-own-target-headers.hmap -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-all-target-headers.hmap -Xcc -iquote -Xcc /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-project-headers.hmap -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/include -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/DerivedSources-normal/arm64 -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/DerivedSources/arm64 -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS-Swift.h -working-directory /Users/ruirui/TetherFlow/ios -experimental-emit-module-separately -disable-cmo
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/ptrauth-1QGLV4XSY57VV6D2HQ3U2PBQI.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_SwiftConcurrencyShims-BPRR6WCR8VPZALKED76K1HNK9.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/DeveloperToolsSupport-ASEQ61OML237F204Z68C8MV2O.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_Builtin_stdbool-B1SX7MS55HJ66KLS7EMQLKZ01.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/SwiftShims-39Q9CZ6H7QSNL87L7B9EIVPK4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_AvailabilityInternal-4GU4BTD3BQBRZ0H7DBFK1SIG.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/ptrcheck-772ZPTQZPONFUC31F0JDW554N.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_Builtin_stdarg-64K113MEJ9IJYYKP0N2YZQZMA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_Builtin_float-LKEA1T5WUKVEDY4YJBMDH8F1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_Builtin_stddef-2EHH11YW3EN61CDKXLU8DX6OY.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_DarwinFoundation1-LXQOB09O5H3VOUV481ALKWXB.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_DarwinFoundation2-4M4GPCZOS1OUB9FFGGO32LST5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_Builtin_limits-BNYC7DOA8ZY682YUA4966W6CB.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_Builtin_tgmath-CVY08J03UVD67OQEOA80C2ZQI.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/sys_types-9TJT1RKF62R8VTPLKBD6LUZWE.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_Builtin_stdint-92OKG1W3VHOXOWZOVV98IFK66.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_Builtin_stdatomic-9N9C6ZMADFFUOOTVDINH7P44A.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_DarwinFoundation3-29GMN90BWLZG9DG2JKM42PNAF.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_Builtin_intrinsics-4ZGQR6LQ0UBO3IG31V2FQUTNK.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/_Builtin_inttypes-DDUD8JS8ETUQ00IW8IYAV5YMC.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/Darwin-8MQ0EYMN2JVB441C1KJ2YO968.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/simd-8D5NXPMZSFA33E01ILHK5Q9EF.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/ObjectiveC-3GFCFTV3TNPJHB7D6G2WUSA4T.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/MachO-DYX8DYZM25NYX5MQM9IPSH7F3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/os_object-1HI4C5J8O4JMG10RN2HE6TA03.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/os_workgroup-51O210G8SB3AU5SFE1PQ8HJEV.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/Spatial-D1RY6D6FGV1MB124MYNSQDSO4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/Dispatch-B310L7ZHSX5KSDUYN7XJYZTIC.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/XPC-1UCTN73DXOHGXX3FRNWFUSP6Y.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/dnssd-6JBHOL4PF4P0NTLZMMGGFDKZK.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/CoreFoundation-F5JTN4578PW50PAWDBQTE6EM4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/os-9SRN8S1PTUYZOUMOK89AHVK6Z.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/Security-7OB87CRB76ZDKMTRUNL2IG3H3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/CoreGraphics-132B14T4ROXSPX5G80JZ7BG1F.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/CFNetwork-90ARIXN4TB9SGJC7GGVDEXNFO.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/Foundation-98ZL9R4AO99CQ1RS6FIROMUCK.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/ImageIO-AVONJ8E77MDDGP8QPG3TCNIFK.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/CoreText-3YZF6NLWRUQVI7LDAM9N0WGNL.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/FileProvider-9105N15I4BVZIPSWW8A3LX8V6.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/UIUtilities-DH9AF3OKNW5YF8FOY00219UOP.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/UserNotifications-61XI53T5V1CS6WAE38KF6SQEY.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/Network-52HRF9BV0ZBDXKQL8X7B1HF69.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/Accessibility-6E3ORGWYCB13DOVCWU565DYXC.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/CoreTransferable-285DMGIR5C44V799G98W7ARXJ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/OSLog-9VZCXEK4NI3F6G9KT9VS6ZE38.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/UniformTypeIdentifiers-5K0RXC2J8HPB35UM2R56OB2QG.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/Symbols-A7UE0AKXMM1YM9FZKEIO9KM9O.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/IOSurface-5TP609F3DOXMAZXQLH18GNJHK.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/DataDetection-5CRUNICYT70MF0EREJL0KV36X.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/CoreData-44ZEXXIMYUSBPG43B49SXQ86O.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/OpenGLES-DN28E7VL6WRF4Q9RJMOMRJ01J.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/Metal-7RGU057A3KMLS78MBVR3V8WIV.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/CoreVideo-5IQ8EJ3EBW43VT2Y9QMAL564P.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/QuartzCore-4ICJX7LUA18EFQKJG2KT3OD4Q.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/CoreImage-1VCCBQKEERE3P9CIP6IP4A1JE.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/SwiftUICore-BKXRTRNV6W31JD7HEMHHL9712.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/UIKit-VG0ZH0IP1N085BB01WVXKXK8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/SwiftUI-3MJCL5APJBGMJVMORXER7M7LL.pcm
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ TetherFlowIOS (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+
+EmitSwiftModule normal arm64 (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    
+
+SwiftCompile normal arm64 Compiling\ TetherFlowApp.swift /Users/ruirui/TetherFlow/ios/App/TetherFlowApp.swift (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+SwiftCompile normal arm64 /Users/ruirui/TetherFlow/ios/App/TetherFlowApp.swift (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    
+
+SwiftCompile normal arm64 Compiling\ ProxyServer.swift /Users/ruirui/TetherFlow/ios/Sources/ProxyCore/ProxyServer.swift (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+
+SwiftCompile normal arm64 /Users/ruirui/TetherFlow/ios/Sources/ProxyCore/ProxyServer.swift (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    
+
+SwiftCompile normal arm64 Compiling\ HTTPProtocol.swift /Users/ruirui/TetherFlow/ios/Sources/ProxyCore/HTTPProtocol.swift (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+
+SwiftCompile normal arm64 /Users/ruirui/TetherFlow/ios/Sources/ProxyCore/HTTPProtocol.swift (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for TetherFlowIOS (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+
+SwiftDriver\ Compilation\ Requirements TetherFlowIOS normal arm64 com.apple.xcode.tools.swift.compiler (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name TetherFlowIOS -Onone @/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.SwiftFileList -DDEBUG -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -target arm64-apple-ios17.0 -g -module-cache-path /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/ruirui/TetherFlow/ios/DerivedData/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos -F /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos -c -j12 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/ruirui/TetherFlow/ios/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-688ef53f1462e2c8f657fdc38a81448f32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -output-file-map /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS_const_extract_protocols.json -Xcc -iquote -Xcc /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-generated-files.hmap -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-own-target-headers.hmap -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-all-target-headers.hmap -Xcc -iquote -Xcc /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-project-headers.hmap -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/include -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/DerivedSources-normal/arm64 -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/DerivedSources/arm64 -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS-Swift.h -working-directory /Users/ruirui/TetherFlow/ios -experimental-emit-module-separately -disable-cmo
+
+Copy /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.swiftmodule/arm64-apple-ios.swiftmodule /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.swiftmodule (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.swiftmodule /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.swiftmodule/arm64-apple-ios.swiftmodule
+
+Copy /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.swiftmodule/arm64-apple-ios.abi.json /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.abi.json (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.abi.json /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.swiftmodule/arm64-apple-ios.abi.json
+
+Copy /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.swiftmodule/arm64-apple-ios.swiftdoc /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.swiftdoc (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.swiftdoc /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.swiftmodule/arm64-apple-ios.swiftdoc
+
+Copy /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.swiftmodule/Project/arm64-apple-ios.swiftsourceinfo /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.swiftsourceinfo (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.swiftsourceinfo /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.swiftmodule/Project/arm64-apple-ios.swiftsourceinfo
+
+SwiftMergeGeneratedHeaders /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/DerivedSources/TetherFlowIOS-Swift.h /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS-Swift.h (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    builtin-swiftHeaderTool -arch arm64 /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS-Swift.h -o /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/DerivedSources/TetherFlowIOS-Swift.h
+
+SwiftDriverJobDiscovery normal arm64 Compiling HTTPProtocol.swift (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ProxyServer.swift (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+
+SwiftDriverJobDiscovery normal arm64 Compiling TetherFlowApp.swift (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+
+SwiftDriver\ Compilation TetherFlowIOS normal arm64 com.apple.xcode.tools.swift.compiler (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name TetherFlowIOS -Onone @/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.SwiftFileList -DDEBUG -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -target arm64-apple-ios17.0 -g -module-cache-path /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/ruirui/TetherFlow/ios/DerivedData/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos -F /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos -c -j12 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/ruirui/TetherFlow/ios/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-688ef53f1462e2c8f657fdc38a81448f32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -output-file-map /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/ruirui/TetherFlow/ios/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS_const_extract_protocols.json -Xcc -iquote -Xcc /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-generated-files.hmap -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-own-target-headers.hmap -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-all-target-headers.hmap -Xcc -iquote -Xcc /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-project-headers.hmap -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/include -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/DerivedSources-normal/arm64 -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/DerivedSources/arm64 -Xcc -I/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS-Swift.h -working-directory /Users/ruirui/TetherFlow/ios -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/TetherFlowIOS.debug.dylib normal (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0 -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -O0 -L/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos -L/Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos -F/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos -F/Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos -filelist /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.LinkFileList -install_name @rpath/TetherFlowIOS.debug.dylib -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker @executable_path/Frameworks -Xlinker -dead_strip -Xlinker -object_path_lto -Xlinker /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphoneos -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.swiftmodule @/Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS-linker-args.resp -Xlinker -alias -Xlinker _main -Xlinker ___debug_main_executable_dylib_entry_point -o /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/TetherFlowIOS.debug.dylib
+
+ConstructStubExecutorLinkFileList /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-ExecutorLinkFileList-normal-arm64.txt (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    construct-stub-executor-link-file-list /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/TetherFlowIOS.debug.dylib /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib/libPreviewsJITStubExecutor_no_swift_entry_point.a /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib/libPreviewsJITStubExecutor.a --output /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-ExecutorLinkFileList-normal-arm64.txt
+note: Using stub executor library with Swift entry point. (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+
+Ld /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/TetherFlowIOS normal (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -O0 -L/Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos -F/Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos -Xlinker -rpath -Xlinker @executable_path -Xlinker -rpath -Xlinker @executable_path/Frameworks -rdynamic -Xlinker -no_deduplicate -e ___debug_blank_executor_main -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_dylib -Xlinker /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-DebugDylibPath-normal-arm64.txt -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_instlnm -Xlinker /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-DebugDylibInstallName-normal-arm64.txt -Xlinker -filelist -Xlinker /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS-ExecutorLinkFileList-normal-arm64.txt /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/TetherFlowIOS.debug.dylib -o /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/TetherFlowIOS
+
+CopySwiftLibs /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    builtin-swiftStdLibTool --copy --verbose --scan-executable /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/TetherFlowIOS.debug.dylib --scan-folder /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/Frameworks --scan-folder /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/PlugIns --scan-folder /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/SystemExtensions --scan-folder /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/Extensions --platform iphoneos --toolchain /var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v17.6.109.0.PjpWbZ/Metal.xctoolchain --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+Ignoring --strip-bitcode because --sign was not passed
+
+ExtractAppIntentsMetadata (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v17.6.109.0.PjpWbZ/Metal.xctoolchain --module-name TetherFlowIOS --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk --xcode-version 17F113 --platform-family iOS --deployment-target 17.0 --bundle-identifier com.tetherflow.prototype --output /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app --target-triple arm64-apple-ios17.0 --binary-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/TetherFlowIOS --dependency-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS_dependency_info.dat --stringsdata-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.SwiftFileList --metadata-file-list /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS.DependencyMetadataFileList --static-metadata-file-list /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS.DependencyStaticMetadataFileList --swift-const-vals-list /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/Objects-normal/arm64/TetherFlowIOS.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-24 03:21:08.717 appintentsmetadataprocessor[76251:10725700] Starting appintentsmetadataprocessor export
+2026-10-24 03:21:08.721 appintentsmetadataprocessor[76251:10725700] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+AppIntentsSSUTraining (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsnltrainingprocessor --infoplist-path /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/Info.plist --temp-dir-path /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/ssu --bundle-id com.tetherflow.prototype --product-path /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app --extracted-metadata-path /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/Metadata.appintents --metadata-file-list /Users/ruirui/TetherFlow/ios/DerivedData/Build/Intermediates.noindex/TetherFlowIOS.build/Debug-iphoneos/TetherFlowIOS.build/TetherFlowIOS.DependencyMetadataFileList --source-file /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app/Info.plist --archive-ssu-assets
+2026-10-24 03:21:08.744 appintentsnltrainingprocessor[76252:10725704] Parsing options for appintentsnltrainingprocessor
+2026-10-24 03:21:08.744 appintentsnltrainingprocessor[76252:10725704] Starting AppIntents SSU YAML Generation
+2026-10-24 03:21:08.750 appintentsnltrainingprocessor[76252:10725704] No AppShortcuts found - Skipping.
+
+RegisterExecutionPolicyException /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    builtin-RegisterExecutionPolicyException /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app
+
+Validate /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    builtin-validationUtility /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app -shallow-bundle -infoplist-subpath Info.plist
+warning: All interface orientations must be supported unless the app requires full screen. (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+
+Touch /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app (in target 'TetherFlowIOS' from project 'TetherFlowIOS')
+    cd /Users/ruirui/TetherFlow/ios
+    /usr/bin/touch -c /Users/ruirui/TetherFlow/ios/DerivedData/Build/Products/Debug-iphoneos/TetherFlowIOS.app
+
+** BUILD SUCCEEDED **
+
+PASS: unsigned generic iOS scheme build

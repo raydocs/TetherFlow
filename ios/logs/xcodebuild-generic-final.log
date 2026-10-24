@@ -1,0 +1,12 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project ios/TetherFlowIOS.xcodeproj -scheme TetherFlowIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath ios/DerivedData CODE_SIGNING_ALLOWED=NO build
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+2026-10-24 03:24:17.150 xcodebuild[89265:10784748] Writing error result bundle to /var/folders/v4/1r21hprs5j97y_ky8qbhjvrw0000gn/T/ResultBundle_2026-24-10_03-24-0017.xcresult
+xcodebuild: error: Unable to find a destination matching the provided destination specifier:
+		{ generic:1, platform:iOS }
+
+	Ineligible destinations for the "TetherFlowIOS" scheme:
+		{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device, error:iOS 26.5 is not installed. Please download and install the platform from Xcode > Settings > Components. }
