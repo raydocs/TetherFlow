@@ -39,3 +39,6 @@ Opus计划docs/STEAM-RELIABILITY-PLAN.md已集成；新分支wip/steam-reliabili
 
 ## R6 集成验证中、R7启动
 已审查并集成78246b3，显式三种出口模式、HTTP每次下行write累计、TLS不重复计数。主线程race三轮/Windows vet/跨语言3轮执行中；CLI接线在R11，当前不能说用户已能切换。R7认证过期隔离与generation安全刷新交Sonnet独立worktree（steam-sonnet-r7-20261106），R8仍独立进行。工作者报告旧版desktop根包proxy_darwin.go缺fmt导入，非本次范围，暂不修改，交付不能宣称全仓build通过。
+
+## R8集成、Windows CI缺陷修正
+已集成7e9f8b8：前台暂停RAM token/重启序列化，主线程SwiftRelease及跨语言检查进行中。发现真实Windows CI42200835327失败于测试Get-Acl模块装载（非ACL变化），测试改用Windows PowerShell .NET GetAccessControl取完整SDDL，保留前后相等断言，需CI确认。R13 Release/签名脚本验证交Sonnet独立worktree，明确不碰账号或安装SDK。R7仍认证实现中。

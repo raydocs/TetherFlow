@@ -13,7 +13,7 @@ import (
 
 func sddl(t *testing.T, p string) string {
 	t.Helper()
-	out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", "(Get-Acl -LiteralPath '"+p+"').Sddl").CombinedOutput()
+	out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", "[System.IO.File]::GetAccessControl('"+strings.ReplaceAll(p, "'", "''")+"').GetSecurityDescriptorSddlForm([System.Security.AccessControl.AccessControlSections]::All)").CombinedOutput()
 	if err != nil {
 		t.Fatalf("Get-Acl: %v\n%s", err, out)
 	}
