@@ -54,3 +54,6 @@ R7主线程steamaccel race三轮/Windowsvet及跨语言3轮通过；R13主线程
 
 ## R10集成验证中、R11启动
 已核对并集成5439234：exe隐藏stdin、无token文件、候选探测成功才刷新，主线程cmd race/Windowsvet进行中。当前407分类用既有错误文本，R12须替换为类型化；protocol2预检也由R12接线，暂不宣称版本兼容门槛已落实。R11模式入口/同窗口并发指标交Sonnet独立worktree，与R9核心DNS不重叠；旧安装说明待R15统一更新。
+
+## R9集成验证中
+已检查并集成6b4ea04：手机hostname CONNECT不再依赖桌面DNS；家庭解析结果保持公网固定校验，多IPv4分配公平拨号预算（总超时<4秒不能保证尝试4个地址，已记录）。CONNECT fixture由IP改hostname是协议变化，不删除完整性/预算断言。主线程race三轮、Windowsvet、跨语言10轮启动，待结果。R13代码2ac9739的CI42202371491已全绿，含Debug+Release构建及产物检查；最新R10/R9尚不在该证据内。R11进行中，R12须等其完成后接线。
