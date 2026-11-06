@@ -42,3 +42,6 @@ Opus计划docs/STEAM-RELIABILITY-PLAN.md已集成；新分支wip/steam-reliabili
 
 ## R8集成、Windows CI缺陷修正
 已集成7e9f8b8：前台暂停RAM token/重启序列化，主线程SwiftRelease及跨语言检查进行中。发现真实Windows CI42200835327失败于测试Get-Acl模块装载（非ACL变化），测试改用Windows PowerShell .NET GetAccessControl取完整SDDL，保留前后相等断言，需CI确认。R13 Release/签名脚本验证交Sonnet独立worktree，明确不碰账号或安装SDK。R7仍认证实现中。
+
+## R7集成验证中、R9启动
+已核对generation锁/407不冷却/旧generation隔离并集成R7；第二个旧test407改502保留原断言，符合新认证语义。Config初始token仍宽松（兼容既有库调用），CLI R10必须Normalize严格输入；已在途旧认证可能再发一次，非重复新调度。主线程race/Windowsvet/跨语言3轮执行中。R8主线程SwiftRelease41项及跨语言3轮通过。R9独立DNS与公平IP预算交Sonnet独立worktree，R13交付脚本并行；不修改既有Android。
