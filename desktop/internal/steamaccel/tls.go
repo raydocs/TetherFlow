@@ -249,7 +249,7 @@ func (r *Relay) serveTLS(parent context.Context, client net.Conn) {
 			stopUp()
 			upstream.Close()
 		}
-		localCapacity := errors.Is(err, errDialBusy) || errors.Is(err, errPhoneCapacity)
+		localCapacity := errors.Is(err, errDialBusy) || errors.Is(err, errPhoneCapacity) || errors.Is(err, errPhoneAuth)
 		r.finish(i, ctx.Err() == nil && !localCapacity)
 		if sent != 0 || errors.Is(err, errDialBusy) {
 			return

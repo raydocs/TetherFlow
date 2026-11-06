@@ -755,7 +755,7 @@ func TestTLSPhoneCONNECTFailureFallsBackHome(t *testing.T) {
 			go func() {
 				defer b.Close()
 				http.ReadRequest(bufio.NewReader(b))
-				io.WriteString(b, "HTTP/1.1 407 Denied\r\n\r\n")
+				io.WriteString(b, "HTTP/1.1 502 Bad Gateway\r\n\r\n")
 			}()
 			return a, nil
 		}

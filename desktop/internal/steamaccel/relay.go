@@ -20,6 +20,8 @@ type PathStatus struct {
 type Status struct {
 	Home, Phone PathStatus
 	Mode        UplinkMode
+	// PhoneAuth is the phone token's state. It never contains the token.
+	PhoneAuth PhoneAuthStatus
 }
 
 type path struct {
@@ -36,6 +38,7 @@ type Relay struct {
 	cfg                 Config
 	mu                  sync.Mutex
 	paths               [2]path
+	auth                phoneAuth // guarded by mu
 	slots               chan struct{}
 	dialSlots           chan struct{}
 	phoneSockets        phoneBudget
@@ -53,6 +56,11 @@ func New(config Config) (*Relay, error) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &Relay{cfg: c, slots: make(chan struct{}, c.MaxConcurrent), dialSlots: make(chan struct{}, c.MaxConcurrent), ctx: ctx, cancel: cancel}
+	// The token lives only in r.auth, so SetPhoneToken is its single source of truth.
+	if c.PhoneToken != "" {
+		r.auth = phoneAuth{token: c.PhoneToken, generation: 1}
+		r.cfg.PhoneToken = ""
+	}
 	r.phoneSockets = phoneBudget{limit: c.MaxPhoneConnections, conns: make(map[*phoneConn]struct{})}
 	homeDial := c.HomeDialContext
 	if homeDial == nil {
@@ -102,7 +110,7 @@ func (r *Relay) Server(addr string) *http.Server {
 func (r *Relay) Snapshot() Status {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return Status{Home: r.paths[0].status, Phone: r.paths[1].status, Mode: r.cfg.Uplinks}
+	return Status{Home: r.paths[0].status, Phone: r.paths[1].status, Mode: r.cfg.Uplinks, PhoneAuth: r.auth.status()}
 }
 
 func (r *Relay) Close() error {
@@ -133,6 +141,10 @@ func (r *Relay) acquire(exclude int) int {
 	for i := range r.paths {
 		p := &r.paths[i]
 		if i == exclude || !r.pathEnabled(i) || now.Before(p.status.CooldownUntil) {
+			continue
+		}
+		// A stale token is not sent again until SetPhoneToken installs a new one.
+		if i == 1 && r.auth.stale {
 			continue
 		}
 		if chosen < 0 {
@@ -264,6 +276,10 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		i := r.acquire(previous)
 		if i < 0 {
+			if r.cfg.Uplinks == UplinkPhoneOnly && r.phoneStale() {
+				http.Error(w, "phone authorization stale; refresh the token", http.StatusServiceUnavailable)
+				return
+			}
 			http.Error(w, "uplinks cooling down", http.StatusServiceUnavailable)
 			return
 		}
@@ -281,7 +297,9 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				resp.Body.Close()
 			}
 			attemptCancel()
-			localCapacity := errors.Is(roundErr, errDialBusy) || errors.Is(roundErr, errPhoneCapacity)
+			// Local capacity and a rejected token are not the uplink's health.
+			authFailure := errors.Is(roundErr, errPhoneAuth)
+			localCapacity := errors.Is(roundErr, errDialBusy) || errors.Is(roundErr, errPhoneCapacity) || authFailure
 			r.finish(i, req.Context().Err() == nil && r.ctx.Err() == nil && !localCapacity)
 			if errors.Is(roundErr, errDialBusy) {
 				http.Error(w, "relay dial capacity exhausted", http.StatusServiceUnavailable)
@@ -295,6 +313,10 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// Single-path modes have no other uplink to retry on.
 			if attempt == 0 && r.cfg.Uplinks == UplinkDual {
 				continue
+			}
+			if authFailure {
+				http.Error(w, "phone authorization stale; refresh the token", http.StatusServiceUnavailable)
+				return
 			}
 			if localCapacity {
 				http.Error(w, "relay socket capacity exhausted", http.StatusServiceUnavailable)
@@ -485,7 +507,7 @@ func (r *Relay) originDial(dial DialContextFunc, phone bool) DialContextFunc {
 				err = errors.New("dial returned no connection")
 			}
 			last = err
-			if ctx.Err() != nil || errors.Is(err, errPhoneCapacity) {
+			if ctx.Err() != nil || errors.Is(err, errPhoneCapacity) || errors.Is(err, errPhoneAuth) {
 				break
 			}
 		}

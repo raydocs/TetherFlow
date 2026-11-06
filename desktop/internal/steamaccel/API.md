@@ -14,12 +14,13 @@ defer r.Close()
 s := r.Server("192.168.1.10:80") // bounded HTTP server; call ListenAndServe yourself
 // Optional opaque TLS ingress: caller binds exact HomeIPv4:443, then r.ServeTLS(listener).
 // r also implements http.Handler (GET/HEAD only).
-// r.Snapshot() returns Status{Home, Phone PathStatus; Mode UplinkMode}.
+// r.Snapshot() returns Status{Home, Phone PathStatus; Mode UplinkMode; PhoneAuth PhoneAuthStatus}.
+// r.SetPhoneToken(typedToken) swaps the phone bearer token while running (see Phone token refresh).
 ```
 
 Stable public surface: `New(Config) (*Relay, error)`, `(*Relay).ServeHTTP`,
 `(*Relay).Server(addr string) *http.Server`, `(*Relay).ServeTLS(net.Listener) error`,
-`(*Relay).Snapshot() Status`,
+`(*Relay).Snapshot() Status`, `(*Relay).SetPhoneToken(string) error`, `NormalizePhoneToken(string) (string, error)`,
 `(*Relay).Close() error`. `PathStatus` exposes `Requests`, `Active`, `Bytes`,
 `Errors` (uint64), `CooldownUntil` (time.Time); `Status` exposes `Home`, `Phone`
 and `Mode` (the configured `UplinkMode`).
@@ -86,6 +87,39 @@ public IPv4/IPv6 port 80 (and 443 if used by a trusted caller); CONNECT443-only 
 insufficient for Steam HTTP downloads. The launcher owns bind address and firewall.
 
 Windows socket option reference: [Microsoft IPPROTO_IP socket options](https://learn.microsoft.com/en-us/windows/win32/winsock/ipproto-ip-socket-options) (`IP_UNICAST_IF`, network-byte-order interface index).
+
+## Phone token refresh
+
+`SetPhoneToken(token string) error` replaces the phone bearer token on a running relay;
+`NormalizePhoneToken(raw string) (string, error)` is the canonicalising validator it uses.
+
+Formats. `NormalizePhoneToken` removes spaces, tabs, CR/LF and hyphens (the on-screen
+grouping of 4), lowercases ASCII letters, and then requires exactly one of:
+- 32 characters of lowercase Crockford base32 (`0123456789abcdefghjkmnpqrstvwxyz`:
+  no `i l o u`), the iOS app's new format (20 random bytes); or
+- 64 lowercase hex characters, the legacy iOS token (still accepted).
+Crockford's decoding aliases (`O` to `0`, `I`/`L` to `1`) are deliberately NOT applied: the
+bearer string must equal what the phone holds. Errors never contain the input.
+`Config.PhoneToken` keeps its older, looser check (printable ASCII, no whitespace, at most
+4096 bytes) so existing callers and tests still work; only `SetPhoneToken` is strict.
+`SetPhoneToken` returns an error in `UplinkHomeOnly` (no phone path) and on a closed relay.
+
+State machine (`Status.PhoneAuth`: `Stale`, `Generation`, `Rejections`, `StaleSince`; never the token):
+- The token and its generation are one pair, read and written under one lock. `Config.PhoneToken`
+  is generation 1 (0 if none was given); each accepted `SetPhoneToken` adds 1.
+- A CONNECT answered `407` marks the phone `Stale` for the generation that was sent. It is NOT a
+  path error: no `Errors++` and no cooldown (`errPhoneAuth` joins the local-capacity class). A 407
+  from an older generation is ignored, so it cannot invalidate a fresher token. `Rejections` counts
+  407s for the current generation; `StaleSince` is when `Stale` was first set.
+- While `Stale`, the scheduler (`acquire`) does not choose the phone, so the stale token is not
+  sent again. A CONNECT already in flight may still send it once.
+- `UplinkDual` continues on home in the same request (HTTP and TLS). `UplinkPhoneOnly` fails
+  closed: 503 for HTTP and a closed session for TLS, and the home path is never used.
+- `SetPhoneToken` installs the new token and generation, clears `Stale`, and closes IDLE phone
+  sockets (keep-alive tunnels opened with the old token). Active transfers are not interrupted.
+  An invalid token changes nothing, including `Stale`.
+- `SetPhoneToken` does not contact the phone. A caller that must verify a token before swapping
+  it (the CLI's authenticated diagnostic probe) does that first.
 
 ## Opaque TLS ingress (stable API)
 

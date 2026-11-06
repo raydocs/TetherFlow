@@ -27,6 +27,9 @@ func (r *Relay) connectPhone(ctx context.Context, dial DialContextFunc, target s
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	// Token and generation are read together. The scheduler (acquire) is what keeps
+	// a stale phone from being chosen; a dial already in flight may still send once.
+	token, generation := r.phoneCredentials()
 	if err := r.reservePhone(); err != nil {
 		return nil, err
 	}
@@ -58,7 +61,7 @@ func (r *Relay) connectPhone(ctx context.Context, dial DialContextFunc, target s
 	if err := conn.SetDeadline(deadline); err != nil {
 		return nil, err
 	}
-	request := "CONNECT " + target + " HTTP/1.1\r\nHost: " + target + "\r\nProxy-Authorization: Bearer " + r.cfg.PhoneToken + "\r\n\r\n"
+	request := "CONNECT " + target + " HTTP/1.1\r\nHost: " + target + "\r\nProxy-Authorization: Bearer " + token + "\r\n\r\n"
 	if _, err := io.WriteString(conn, request); err != nil {
 		return nil, err
 	}
@@ -81,6 +84,10 @@ func (r *Relay) connectPhone(ctx context.Context, dial DialContextFunc, target s
 	resp, err := http.ReadResponse(bufio.NewReader(bytes.NewReader(header)), &http.Request{Method: http.MethodConnect})
 	if err != nil {
 		return nil, fmt.Errorf("invalid CONNECT response: %w", err)
+	}
+	if resp.StatusCode == http.StatusProxyAuthRequired {
+		r.markPhoneAuthStale(generation)
+		return nil, errPhoneAuth
 	}
 	if resp.ProtoMajor != 1 || resp.ProtoMinor > 1 || resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("CONNECT rejected with status %d", resp.StatusCode)
