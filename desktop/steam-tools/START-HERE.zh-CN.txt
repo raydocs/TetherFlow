@@ -1,0 +1,43 @@
+﻿TetherFlow Steam 双网加速 - 实验版 - 先读这一页
+==============================================
+
+这是未签名的实验版（unsigned experimental）。它没有证明 Steam 会使用本机中继，也没有速度结论：
+没有 iPhone 加 Windows 真机的速度证据，不要把配置成功当成加速成功。
+
+包内文件
+--------
+  tetherflow-steam-accelerator.exe   命令行程序
+  Start-SteamAccelerator.ps1         启动脚本（只含 ASCII，Windows PowerShell 5.1 可直接读取）
+  README.zh-CN.md                    完整说明、故障判断、恢复方法
+  START-HERE.zh-CN.txt               本页
+  MANIFEST.txt                       提交号、exe 的 SHA-256、Authenticode 状态
+
+先核对（不改任何设置）
+----------------------
+1. 对照 MANIFEST.txt：在 PowerShell 中运行
+     Get-FileHash .\tetherflow-steam-accelerator.exe -Algorithm SHA256
+   结果必须等于 MANIFEST.txt 里的 executable_sha256。不一致就不要运行。
+2. 程序未签名，Windows SmartScreen 可能拦截，浏览器下载的 zip 也可能带有“来自 Internet”标记。
+   只在你确认来源可信后，自行对解压出的文件解除标记；不要为了运行而永久降低系统执行策略。
+3. 只读体检（不需要管理员，不改 hosts）：
+     .\tetherflow-steam-accelerator.exe --doctor
+   出现 FAIL 时先处理 FAIL，不要继续。
+
+使用顺序
+--------
+1. iPhone 打开 TetherFlow，点 Start，保持前台。App 上显示的会话 token 只在程序的隐藏输入里输入，
+   不要放进命令行、聊天、截图或日志。token 变化后程序会提示重新输入。
+2. 先测手机 USB 链路（不改 hosts，不需要管理员）：
+     .\Start-SteamAccelerator.ps1 -CheckPhoneOnly
+3. 以管理员身份打开 PowerShell，再启动（把 IP 换成 --doctor 列出的家庭 Wi-Fi 地址）：
+     .\Start-SteamAccelerator.ps1 -HomeIP 192.168.1.23
+   可用 -Mode HomeOnly / PhoneOnly / Dual 分别测家庭单路、手机单路、双路基准。
+4. 完全退出并重开 Steam 一次，再下载。Ctrl+C 退出，程序只移除它自己的 hosts 条目。
+
+如果 hosts 条目没有被清理
+--------------------------
+日志中会给出 32 位 lease。运行：
+     .\tetherflow-steam-accelerator.exe --recover-lease 日志中的32位lease
+它只移除对应的条目，不会整文件恢复旧 hosts，也不会覆盖别的程序写入的内容。
+
+更多内容见 README.zh-CN.md。

@@ -16,7 +16,7 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -28,25 +28,72 @@ jobs:
         run: |
           go test -race -count=3 ./internal/steamaccel ./internal/steamsetup ./internal/usbmux ./cmd/steam-accelerator
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          go vet ./internal/steamaccel ./internal/steamsetup ./internal/usbmux ./cmd/steam-accelerator
+          go vet ./internal/steamaccel ./internal/steamsetup ./internal/usbmux ./cmd/steam-accelerator ./steam-tools/testdata/fakeaccel
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           go build -trimpath -o steam-tools/tetherflow-steam-accelerator.exe ./cmd/steam-accelerator
           exit $LASTEXITCODE
       - name: Parse PowerShell launcher and run read-only diagnostics
         shell: pwsh
         run: |
-          $tokens = $null; $parseErrors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/desktop/steam-tools/Start-SteamAccelerator.ps1", [ref]$tokens, [ref]$parseErrors) | Out-Null
-          if ($parseErrors.Count) { $parseErrors | Format-List; exit 1 }
+          foreach ($script in 'Start-SteamAccelerator.ps1','Test-Launcher.ps1','package.ps1') {
+            $tokens = $null; $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile("$PWD/desktop/steam-tools/$script", [ref]$tokens, [ref]$parseErrors) | Out-Null
+            if ($parseErrors.Count) { $parseErrors | Format-List; exit 1 }
+          }
           & ./desktop/steam-tools/tetherflow-steam-accelerator.exe --doctor
+          # Exit 2 is a FAIL line (a runner has no Apple USB service); anything else is a crash.
+          if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 2) { exit $LASTEXITCODE }
+      - name: Windows end-to-end (real exe, real hosts file, ports 27015/80/443)
+        # TF_E2E_WINDOWS=1 is the explicit opt-in: the tests change this runner's hosts file and
+        # bind its global ports, and refuse to run when GITHUB_ACTIONS is not "true".
+        working-directory: desktop
+        env:
+          TF_E2E_WINDOWS: '1'
+        run: |
+          go test -count=1 -timeout 30m -v -run '^TestE2E' ./cmd/steam-accelerator 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\e2e.log"
+          $code = $LASTEXITCODE
+          $log = Get-Content -LiteralPath "$env:RUNNER_TEMP\e2e.log" -Raw
+          $required = 'TestE2EPhoneModeDownloadExact','TestE2EStaleTokenRefreshOverStdin','TestE2EReenumerationReconnects','TestE2EForceKillGuardianCleansHosts','TestE2ECtrlBreakCleanExit','TestE2EStaleBlockReclaimedAfterGuardianKilled','TestE2EDoctorReportsUSBServiceFail'
+          foreach ($name in $required) {
+            if ($log -notmatch "--- PASS: $name ") { Write-Host "::error::$name did not pass"; $code = 1 }
+          }
+          if ($log -match '(?m)^\s*--- SKIP') { Write-Host '::error::an E2E test was skipped; the opted-in run must not skip'; $code = 1 }
+          exit $code
+      - name: The runner's hosts file holds no TetherFlow or E2E leftovers
+        if: always()
+        shell: pwsh
+        run: |
+          $hosts = Join-Path $env:SystemRoot 'System32\drivers\etc\hosts'
+          $left = Select-String -LiteralPath $hosts -Pattern 'TetherFlow Steam','lancache\.steamcontent\.com','tf-e2e-foreign'
+          if ($left) { Get-Content -LiteralPath $hosts; Write-Host '::error::hosts still holds E2E or TetherFlow lines'; exit 1 }
+      - name: Package the zip (Windows PowerShell 5.1, reproducible)
+        shell: powershell
+        run: |
+          $zip = & ./desktop/steam-tools/package.ps1 -Executable ./desktop/steam-tools/tetherflow-steam-accelerator.exe -OutDir "$env:GITHUB_WORKSPACE\dist" -Commit $env:GITHUB_SHA -Verify | Select-Object -Last 1
+          if (-not $zip -or -not (Test-Path -LiteralPath $zip)) { Write-Host '::error::package.ps1 produced no zip'; exit 1 }
+          $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "PACKAGE_ZIP=$zip"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "PACKAGE_SHA256=$hash"
+          $name = [IO.Path]::GetFileName($zip)
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "Package $name, SHA-256 $hash (unsigned experimental; its execution is tested in the next step)"
+      - name: Test the extracted zip under Windows PowerShell 5.1 (fake executable, CJK path, real doctor)
+        shell: powershell
+        working-directory: desktop
+        run: |
+          go build -trimpath -o "$env:RUNNER_TEMP\fakeaccel.exe" ./steam-tools/testdata/fakeaccel
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File steam-tools\Test-Launcher.ps1 -PackageZip $env:PACKAGE_ZIP -FakeAccel "$env:RUNNER_TEMP\fakeaccel.exe" -ExpectedCommit $env:GITHUB_SHA -ExpectedZipSha256 $env:PACKAGE_SHA256 -RunRealDoctor
           exit $LASTEXITCODE
+      - name: The tested zip is unchanged
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash -LiteralPath $env:PACKAGE_ZIP -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne $env:PACKAGE_SHA256) { Write-Host "::error::the zip changed after it was tested"; exit 1 }
       - uses: actions/upload-artifact@v4
         with:
           name: tetherflow-steam-windows-experimental
-          path: |
-            desktop/steam-tools/tetherflow-steam-accelerator.exe
-            desktop/steam-tools/Start-SteamAccelerator.ps1
-            desktop/steam-tools/README.zh-CN.md
+          path: dist/*.zip
+          if-no-files-found: error
           retention-days: 7
   mac-host:
     runs-on: macos-latest
