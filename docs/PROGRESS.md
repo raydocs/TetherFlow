@@ -51,3 +51,6 @@ Opus计划docs/STEAM-RELIABILITY-PLAN.md已集成；新分支wip/steam-reliabili
 
 ## 已补验R7/R13与Windows CI
 R7主线程steamaccel race三轮/Windowsvet及跨语言3轮通过；R13主线程19项Python、bash syntax、debug与优化Swift hostfixture跨语言检查通过，未宣称Release app实机构建。Windows修正提交0a7c7e1的CI42201736869全绿，ACL模块故障修正已被实际Windows执行确认（含R2/R5行为测试）。较新2ac9739的CI42202371491尚在运行，不重复轮询。R9与R10仍依赖任务进行中，下一步等待完成自动通知后集成。
+
+## R10集成验证中、R11启动
+已核对并集成5439234：exe隐藏stdin、无token文件、候选探测成功才刷新，主线程cmd race/Windowsvet进行中。当前407分类用既有错误文本，R12须替换为类型化；protocol2预检也由R12接线，暂不宣称版本兼容门槛已落实。R11模式入口/同窗口并发指标交Sonnet独立worktree，与R9核心DNS不重叠；旧安装说明待R15统一更新。
