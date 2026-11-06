@@ -5,6 +5,14 @@ not change the existing desktop application or its `8282 /pac` and ADB probes.
 No physical iPhone, Windows, Steam, cellular throughput, USB link rate, or
 Wi-Fi + cellular aggregation result has been established. See [VALIDATION.md](VALIDATION.md).
 
+**Current status (2026-11-06):** the reliability rework (token lifetime, protocol 2 peer check,
+Release/signing scripts) is integrated on `wip/steam-reliability`, but the independent review round R1
+is **block** and has not been lifted, and the latest CI run is **pending**. Hardware gates H1–H7
+(signing/install on the real iOS 27 phone, Apple Devices, cellular and DNS, token behaviour, Steam
+adoption, mode baselines, Windows) are all **unverified**. Nothing here claims 1200 Mbps, a speed gain,
+Steam adoption, or a fix for Apple's iPhone Ethernet driver. The USBmux path needs no iPhone Ethernet
+adapter or network interface, but still depends on the Apple USB service from Apple Devices.
+
 ## Build and host tests (Mac)
 
 Prerequisites: installed Xcode/command-line tools, XcodeGen (tested 2.46.0), Swift,
@@ -72,7 +80,10 @@ below remain an optional standalone diagnostic path, especially on macOS.
 2. Supply `iproxy` from libusbmuxd, a paired/trusted device, and a data-capable cable.
    `iproxy` was **not installed here**. USB forwarding is external to this app.
 3. Open the signed phone app, enable cellular data for it, keep it active/unlocked,
-   tap **Start**, and securely transfer the displayed session token to the host.
+   tap **Start**, and securely transfer the displayed session token to the host. On the
+   Windows Steam accelerator you type it only into the executable's own hidden stdin prompt:
+   no command-line argument, environment variable or file (`--phone-token-file` is gone), and
+   after a 407 the executable asks again (explicit refresh, never a Wi-Fi fallback).
    Do not paste secrets into chat or public logs. Copy is device-local and expires
    after two minutes; the token itself stays valid until Stop, **Rotate**, or a
    pause longer than 10 minutes (see the token lifetime below).

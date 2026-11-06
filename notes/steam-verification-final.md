@@ -1,5 +1,13 @@
 # Verification freeze — 2026-10-24
 
+> **Superseded as a current status (2026-11-06).** This note is the dated record of the 2026-10-24 freeze
+> at `7a0b54c` and is kept as written. Since then the reliability rework (R1–R14) changed the code, so
+> the CI run and review R2 approval below describe that old commit only. Current: independent review
+> **R1 is block**, the latest CI run is **pending**, the R14 Windows E2E has not run, and real-hardware
+> gates H1–H7 (`docs/STEAM-RELIABILITY-PLAN.md` §5) are all **unverified**. No 1200 Mbps, speed gain,
+> Steam adoption or Apple-Ethernet-driver fix is claimed. See `docs/PROGRESS.md` and
+> `docs/STEAM-MORNING-HANDOFF.zh-CN.md`.
+
 Code commit: `7a0b54c713e22e665807298662a8f67e11e322fd`.
 WIP branch: `wip/steam-ios-dual-download`. Main and existing Android changes untouched.
 Later documentation-only commits do not change the tested/reviewed code.
@@ -33,3 +41,12 @@ There is no USB-connected phone in this session. CoreDevice had zero connected d
 There is an Apple Development identity, but no Team selection, profile/account changes, signing upload or device deployment was performed.
 Devin verification request failed403 `out_of_quota`; no simulator/UI evidence exists and no local runtime was installed.
 Full user goal remains unverified, not completed. See `docs/STEAM-MORNING-HANDOFF.zh-CN.md` and Windows setup for one consolidated acceptance session.
+
+## 2026-11-06 addendum (does not change the record above)
+
+CI runs recorded by the main session after the rework: 42201736869 (0a7c7e1) green; 42202371491 (2ac9739)
+green including Debug and Release iOS builds; 42203841177 (0cccceb) green; 42207422505 **failed** at
+`TestTLSHomeDNSFailureUsesPhone` and the later fix (48b3731) has no CI result yet. Treat none as covering
+a later commit. Known open risks: the unknown cause of the review-R1 EOF (only extreme-load origin
+`ENOBUFS`/`EPIPE` evidence, not proof of the same cause) and the TLS health heuristic (client FIN plus some
+downstream bytes), which is not proof of a complete response.

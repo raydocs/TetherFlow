@@ -1,5 +1,12 @@
 # Validation evidence and remaining gates
 
+**Current status (2026-11-06; read this first).** The records below are dated history and are kept as
+written; they describe the code at their own date, not today's. Today: the reliability rework
+(R1–R14) is integrated, the independent review round R1 is **block** and not lifted, the latest CI run
+is **pending**, and the real-hardware gates H1–H7 (`docs/STEAM-RELIABILITY-PLAN.md` §5) are all
+**unverified**. See "2026-11-06 — reliability rework" at the end. No 1200 Mbps, speed, Steam-adoption
+or Apple-Ethernet-driver claim is made.
+
 Date: 2026-10-24 (America/Denver). Scope: **only new `ios/` files**.
 No commit, push, external agent/reviewer, simulator/emulator run, or runtime
 installation was performed. Other workers' changes outside `ios/` are not part
@@ -244,3 +251,34 @@ EOF plus exact bytes at the receiving application is the test acceptance check.
   exact historical cause is not claimed; the buffered state-callback race is
   independently reproduced and fixed. The receive data-plus-error path is API
   contract hardening, not a separately reproduced failure attribution.
+
+## 2026-11-06 — reliability rework (iOS-side changes since the sections above)
+
+Added as a new dated entry; nothing above is rewritten. Counts such as "17/19 tests" above are
+history for their date.
+
+- **Token lifetime (R8):** `TokenSession` pauses on any non-active scene and keeps the token in RAM for
+  at most 10 minutes of `CLOCK_MONOTONIC`; returning to active inside the window resumes on the same
+  token; expiry, Stop, Rotate or process death destroys it. Format: 20 bytes as 32 lowercase Crockford
+  base32 characters. The listener is released before `.stopped` and a restart waits for it (a scratch
+  probe saw 16/50 immediate rebinds fail with `EADDRINUSE`). Main-session run recorded: Swift Release
+  41 tests, cross-language 3 rounds passed. Caveat: a suspended process enforces the window on the next
+  scene event; not run on a device.
+- **Peer policy and protocol 2 (R4):** literal non-public IP authorities get 403 before any
+  `NWConnection`; legacy numeric hosts are 400; for hostnames the connected
+  `currentPath.remoteEndpoint` must be a numeric public address, else 403, before any byte or 200.
+  `GET /diagnostic/info` returns `{"protocol":2}`. The worker recorded only that the info and
+  legacy-disable tests fail on the old code; it did **not** show that the peer/private tests fail on
+  the old code, so that is not claimed. That `remoteEndpoint` becomes numeric for a hostname dial was
+  seen only in a scratch probe on a Mac: **H3 must confirm it on a device.**
+- **Release and signing (R13):** `tools/validate.sh` now needs unsigned Debug and Release builds plus
+  `tools/verify-app.sh`; `tools/build-signed.sh` is for the owner's own Mac and was never run by any
+  agent or CI. The worker's own Mac had a passing Debug build and verification but a Release
+  destination-discovery failure, which is not recorded as a pass. CI run 42202371491 (commit 2ac9739)
+  was green including Debug and Release builds and the artifact checks; it does not contain later
+  commits. `verify-app.sh` was found in review R1 to miss a producer failure
+  (`strings | grep -q` under SIGPIPE) and was changed to write to a temp file and check the producer;
+  the main-session record says the small review fixes were rerun, but this entry does not re-run
+  them and the final review has not re-checked them.
+- **Not run / not claimed:** no signed install, no iOS 27 device, no Apple Devices, no cellular or
+  carrier DNS test (H1–H4). Independent review R1 is **block**; a new review must cover the whole delta.
