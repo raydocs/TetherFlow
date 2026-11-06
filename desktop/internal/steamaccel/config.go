@@ -55,9 +55,10 @@ type Config struct {
 	AllowedHosts                                                             []string
 	MaxConcurrent, MaxHeaderBytes                                            int
 	HeaderTimeout, IdleTimeout, DialTimeout, RequestTimeout, FailureCooldown time.Duration
-	LookupIP                                                                 LookupIPFunc
-	HomeDialContext, PhoneDialContext                                        DialContextFunc
-	HomeTransport, PhoneTransport                                            http.RoundTripper
+	// LookupIP resolves for the home path only; the phone resolves hostnames itself.
+	LookupIP                          LookupIPFunc
+	HomeDialContext, PhoneDialContext DialContextFunc
+	HomeTransport, PhoneTransport     http.RoundTripper
 }
 
 func defaults(c Config) (Config, error) {

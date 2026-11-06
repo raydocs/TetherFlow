@@ -54,7 +54,7 @@ func integrationRelay(t *testing.T, handler http.Handler) (*Relay, *http.Client,
 	var home, phone atomic.Int64
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		phone.Add(1)
-		if req.Method != "CONNECT" || req.Host != "8.8.8.8:80" || req.Header.Get("Proxy-Authorization") != "Bearer test-secret" {
+		if req.Method != "CONNECT" || req.Host != "cache.steamcontent.com:80" || req.Header.Get("Proxy-Authorization") != "Bearer test-secret" {
 			t.Errorf("invalid CONNECT: %s %s auth=%q", req.Method, req.Host, req.Header.Get("Proxy-Authorization"))
 			http.Error(w, "bad CONNECT", 407)
 			return
@@ -431,6 +431,7 @@ func TestSecurityHostsPeersDNSAndPorts(t *testing.T) {
 	for _, ip := range private {
 		t.Run(ip, func(t *testing.T) {
 			c := testConfig()
+			c.Uplinks = UplinkHomeOnly // desktop DNS validation now applies to the home path
 			c.LookupIP = func(context.Context, string) ([]net.IP, error) {
 				return []net.IP{net.ParseIP("8.8.8.8"), net.ParseIP(ip)}, nil
 			}
@@ -535,6 +536,7 @@ func TestConfigValidation(t *testing.T) {
 
 func TestDNSRebindingCheckedOnEveryRequest(t *testing.T) {
 	c := testConfig()
+	c.Uplinks = UplinkHomeOnly // desktop DNS validation now applies to the home path
 	var calls atomic.Int64
 	c.LookupIP = func(context.Context, string) ([]net.IP, error) {
 		if calls.Add(1) == 1 {

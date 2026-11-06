@@ -42,7 +42,8 @@ Config (all optional except HomeIPv4, and PhoneToken unless `Uplinks` is `Uplink
   be well formed), builds no phone transport and never dials, reserves a socket
   for, or sends CONNECT to the phone. `UplinkPhoneOnly` never uses the home
   transport or dialer, even when the phone fails or is cooling down, and still
-  requires `HomeIPv4` (the ingress peer and bind address).
+  requires `HomeIPv4` (the ingress peer and bind address). That requirement is
+  unchanged and is not relaxed for phone-only use.
 - `HomeIPv4 string`; `AllowHomePeer bool` only adds that exact address to allowed peers.
 - `PhoneProxyAddr string` (numeric loopback IP:port only; default 127.0.0.1:8283), `PhoneToken string`.
 - `HomeWeight, PhoneWeight int`; each must be positive, except both zero use 1:4.
@@ -60,8 +61,10 @@ Config (all optional except HomeIPv4, and PhoneToken unless `Uplinks` is `Uplink
   the request may fall back to home without a phone error/cooldown. This is a
   local socket bound, not an acknowledgement of the proxy's asynchronous FIN
   cleanup. `Close` cancels pending dials and closes active and idle phone sockets.
-- `LookupIP func(context.Context, string) ([]net.IP, error)`: trusted resolver seam.
-  Default uses system DNS; **hosts/lancache DNS overrides require an independent
+- `LookupIP func(context.Context, string) ([]net.IP, error)`: trusted resolver seam,
+  called **only for the home path**, once per home attempt, after the allowlist.
+  The phone path never calls it (the phone resolves the hostname), so a PC DNS
+  failure cannot block the phone. Default uses system DNS; **hosts/lancache DNS overrides require an independent
   public-origin resolver here**, otherwise private answers intentionally fail closed.
 - `HomeDialContext, PhoneDialContext func(context.Context, string, string) (net.Conn, error)`:
   trusted test/integration seams. Home override must enforce source/interface binding.
@@ -70,9 +73,20 @@ Config (all optional except HomeIPv4, and PhoneToken unless `Uplinks` is `Uplink
 
 Security/behavior contract: only loopback peers (and HomeIPv4 if explicitly enabled).
 HTTP ingress allows GET/HEAD, strict allowlisted DNS Host, origin ports 80/443;
-origin port 443 uses verified TLS with the original hostname, not plaintext. All DNS answers must be
-public; origin sockets/CONNECT targets are pinned to validated numeric addresses,
-retaining original HTTP Host (no second DNS lookup). CONNECT uses bearer auth,
+origin port 443 uses verified TLS with the original hostname, not plaintext.
+Each path resolves independently. Home: the PC resolves per attempt and all answers
+must be public (a mixed answer is rejected without dialling); sockets are pinned to
+numeric addresses, retaining original HTTP Host (no second DNS lookup). At most 4
+distinct IPv4 answers are tried, each with `max(DialTimeout/min(n,4), 1s)`, and the
+whole dial is capped by `DialTimeout`, so a blackholed first address cannot starve the
+next. Phone: `CONNECT host:port` with the allowlisted hostname; the phone resolves it
+and validates the actual connected peer. A phone CONNECT `403` means the origin was
+rejected: it sets no cooldown and counts no error, and the request tries home. A
+home resolve rejection (non-public, empty or over-64 answers) is released as "not an
+attempt" (no Request, no error, no cooldown) and tries the phone; a home DNS error
+is a home failure with cooldown. If no path serves the request the client gets 403
+when any path rejected the origin, otherwise 502 (503 while paths cool down or the
+phone is stale; phone-only never falls back to home). CONNECT uses bearer auth,
 validates HTTP 200, bounds headers, and preserves buffered tunnel bytes. No proxy
 auth is forwarded to origins. Hop-by-hop headers and Connection-nominated headers
 are removed in both directions. Concurrency, headers, streaming buffers and timeouts
@@ -131,11 +145,12 @@ admitted. HTTP and TLS share `MaxConcurrent`, uplink scheduling, cooldowns and
 
 ClientHello inspection is read-only: at most 64 KiB captured wire bytes, bounded
 by `HeaderTimeout`. Fragmented records and every captured byte are preserved.
-Only strict allowlisted visible DNS SNI is accepted, all DNS results must be public,
-and destinations are numeric pinned port 443. Missing/invalid SNI and ECH offers
+Only strict allowlisted visible DNS SNI is accepted. The home path resolves per attempt
+(all results must be public) and pins numeric port 443; the phone gets `CONNECT host:443`.
+A rejected origin closes the session without bytes or alerts when no path serves it. Missing/invalid SNI and ECH offers
 are rejected (inner SNI is unavailable); no TLS records or alerts are generated.
 The origin and client perform end-to-end TLS and normal certificate validation.
-Home uses the same source/interface-bound dialer; phone uses authenticated CONNECT443.
+Home uses the same source/interface-bound dialer; phone uses authenticated CONNECT443 by hostname.
 
 Fallback is allowed only on dial/CONNECT failure or a ClientHello write failure
 that wrote zero bytes. Once any TLS byte is sent upstream, never retry/splice.

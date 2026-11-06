@@ -185,6 +185,60 @@ func (r *Relay) finish(i int, failed bool) {
 	// A success already in flight must not erase a concurrent failure's cooldown.
 }
 
+// releaseUnused undoes acquire for an attempt that never reached an uplink, such
+// as a home resolve that was rejected: it is not a Request and not a path error.
+func (r *Relay) releaseUnused(i int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p := &r.paths[i]
+	p.status.Active--
+	if p.status.Requests > 0 {
+		p.status.Requests--
+	}
+}
+
+var (
+	errHomeDNS          = errors.New("origin DNS unavailable")
+	errOriginInvalidDNS = errors.New("invalid origin DNS result")
+	errOriginNonPublic  = errors.New("non-public origin forbidden")
+)
+
+// originRejection reports whether err means a path refused the destination itself
+// (not the uplink), with the text the client sees if no other path serves it.
+func originRejection(err error) (string, bool) {
+	switch {
+	case errors.Is(err, errOriginNonPublic):
+		return errOriginNonPublic.Error(), true
+	case errors.Is(err, errOriginInvalidDNS):
+		return errOriginInvalidDNS.Error(), true
+	case errors.Is(err, errPhoneOriginRejected):
+		return "origin forbidden", true
+	}
+	return "", false
+}
+
+// resolveHome resolves host on the PC for the home path only, and requires every
+// answer to be public. The returned addresses are copies for numeric pinning.
+func (r *Relay) resolveHome(ctx context.Context, host string) ([]net.IP, error) {
+	lookupCtx, cancel := context.WithTimeout(ctx, r.cfg.DialTimeout)
+	ips, err := r.cfg.LookupIP(lookupCtx, host)
+	cancel()
+	if err != nil {
+		return nil, errHomeDNS
+	}
+	if len(ips) == 0 || len(ips) > 64 {
+		return nil, errOriginInvalidDNS
+	}
+	pinned := make([]net.IP, len(ips))
+	for i, ip := range ips {
+		if !publicIP(ip) {
+			return nil, errOriginNonPublic
+		}
+		pinned[i] = append(net.IP(nil), ip...)
+	}
+	return pinned, nil
+}
+
 func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if !r.peerAllowed(req.RemoteAddr) {
 		http.Error(w, "local peer required", http.StatusForbidden)
@@ -229,26 +283,6 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx, cancel := context.WithTimeout(req.Context(), r.cfg.RequestTimeout)
 	stop := context.AfterFunc(r.ctx, cancel)
 	defer func() { stop(); cancel() }()
-	lookupCtx, lookupCancel := context.WithTimeout(ctx, r.cfg.DialTimeout)
-	ips, err := r.cfg.LookupIP(lookupCtx, host)
-	lookupCancel()
-	if err != nil {
-		http.Error(w, "origin DNS unavailable", http.StatusBadGateway)
-		return
-	}
-	if len(ips) == 0 || len(ips) > 64 {
-		http.Error(w, "invalid origin DNS result", http.StatusForbidden)
-		return
-	}
-	pinned := make([]net.IP, len(ips))
-	for i, ip := range ips {
-		if !publicIP(ip) {
-			http.Error(w, "non-public origin forbidden", http.StatusForbidden)
-			return
-		}
-		pinned[i] = append(net.IP(nil), ip...)
-	}
-	ctx = context.WithValue(ctx, targetKey{}, dialTarget{host: host, port: port, ips: pinned})
 	out := req.Clone(ctx)
 	scheme := "http"
 	if port == "443" {
@@ -269,6 +303,7 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		out.URL.Path = "/"
 	}
 	previous := -1
+	rejected := "" // why a path refused the origin; empty if none did
 	for attempt := 0; attempt < 2; attempt++ {
 		if ctx.Err() != nil {
 			r.contextError(w, req, ctx)
@@ -276,6 +311,10 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		i := r.acquire(previous)
 		if i < 0 {
+			if rejected != "" {
+				http.Error(w, rejected, http.StatusForbidden)
+				return
+			}
 			if r.cfg.Uplinks == UplinkPhoneOnly && r.phoneStale() {
 				http.Error(w, "phone authorization stale; refresh the token", http.StatusServiceUnavailable)
 				return
@@ -286,7 +325,17 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// Each attempt owns a cancellable context: the body idle timer cancels it
 		// to unblock a stalled origin read without touching the request context.
 		attemptCtx, attemptCancel := context.WithCancel(ctx)
-		resp, roundErr := r.paths[i].transport.RoundTrip(out.Clone(attemptCtx))
+		// Only the home path resolves, once per attempt. The phone resolves the
+		// hostname itself, so a home DNS failure cannot block it.
+		target := dialTarget{host: host, port: port}
+		var resp *http.Response
+		var roundErr error
+		if i == 0 {
+			target.ips, roundErr = r.resolveHome(ctx, host)
+		}
+		if roundErr == nil {
+			resp, roundErr = r.paths[i].transport.RoundTrip(out.Clone(context.WithValue(attemptCtx, targetKey{}, target)))
+		}
 		failed := roundErr != nil || resp == nil
 		if resp != nil && (resp.StatusCode == 502 || resp.StatusCode == 503 || resp.StatusCode == 504 ||
 			resp.StatusCode < 200 || resp.StatusCode > 599 || headerSize(resp.Header) > r.cfg.MaxHeaderBytes) {
@@ -297,10 +346,20 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				resp.Body.Close()
 			}
 			attemptCancel()
-			// Local capacity and a rejected token are not the uplink's health.
+			// Local capacity and a rejected token are not the uplink's health, and
+			// neither is a refused origin: that is the destination's fault.
 			authFailure := errors.Is(roundErr, errPhoneAuth)
 			localCapacity := errors.Is(roundErr, errDialBusy) || errors.Is(roundErr, errPhoneCapacity) || authFailure
-			r.finish(i, req.Context().Err() == nil && r.ctx.Err() == nil && !localCapacity)
+			if text, ok := originRejection(roundErr); ok {
+				rejected = text
+				if i == 0 {
+					r.releaseUnused(i)
+				} else {
+					r.finish(i, false)
+				}
+			} else {
+				r.finish(i, req.Context().Err() == nil && r.ctx.Err() == nil && !localCapacity)
+			}
 			if errors.Is(roundErr, errDialBusy) {
 				http.Error(w, "relay dial capacity exhausted", http.StatusServiceUnavailable)
 				return
@@ -314,12 +373,20 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if attempt == 0 && r.cfg.Uplinks == UplinkDual {
 				continue
 			}
+			if rejected != "" {
+				http.Error(w, rejected, http.StatusForbidden)
+				return
+			}
 			if authFailure {
 				http.Error(w, "phone authorization stale; refresh the token", http.StatusServiceUnavailable)
 				return
 			}
 			if localCapacity {
 				http.Error(w, "relay socket capacity exhausted", http.StatusServiceUnavailable)
+				return
+			}
+			if errors.Is(roundErr, errHomeDNS) {
+				http.Error(w, "origin DNS unavailable", http.StatusBadGateway)
 				return
 			}
 			http.Error(w, "uplinks unavailable", http.StatusBadGateway)
@@ -458,9 +525,31 @@ func (r *Relay) transport(dial DialContextFunc) *http.Transport {
 var errDialBusy = errors.New("relay dial capacity exhausted")
 
 type targetKey struct{}
+
+// dialTarget is the validated destination. ips holds the home path's resolved,
+// public answers; it is empty for the phone, which resolves host itself.
 type dialTarget struct {
 	host, port string
 	ips        []net.IP
+}
+
+// maxHomeCandidates bounds how many distinct IPv4 answers one home dial tries.
+const maxHomeCandidates = 4
+
+func homeCandidates(ips []net.IP) []net.IP {
+	var out []net.IP
+	seen := make(map[string]bool)
+	for _, ip := range ips {
+		v4 := ip.To4()
+		if v4 == nil || seen[string(v4)] {
+			continue
+		}
+		seen[string(v4)] = true
+		if out = append(out, v4); len(out) == maxHomeCandidates {
+			break
+		}
+	}
+	return out
 }
 
 func (r *Relay) originDial(dial DialContextFunc, phone bool) DialContextFunc {
@@ -483,20 +572,32 @@ func (r *Relay) originDial(dial DialContextFunc, phone bool) DialContextFunc {
 		if r.ctx.Err() != nil {
 			return nil, context.Canceled
 		}
+		if phone {
+			// The phone resolves the hostname and validates the peer it connects to.
+			conn, err := r.connectPhone(ctx, dial, address)
+			if err == nil && conn != nil {
+				return conn, nil
+			}
+			if conn != nil {
+				conn.Close()
+			}
+			if err == nil {
+				err = errors.New("dial returned no connection")
+			}
+			return nil, fmt.Errorf("origin connection failed: %w", err)
+		}
+		candidates := homeCandidates(target.ips)
+		if len(candidates) == 0 {
+			return nil, errors.New("origin connection failed: home uplink requires an IPv4 origin")
+		}
+		// Each candidate gets an equal share so a blackholed first address cannot
+		// starve the next; ctx above caps the sum at DialTimeout.
+		share := max(r.cfg.DialTimeout/time.Duration(len(candidates)), time.Second)
 		var last error
-		for _, ip := range target.ips {
-			if !phone && ip.To4() == nil {
-				last = errors.New("home uplink requires an IPv4 origin")
-				continue
-			}
-			pinned := net.JoinHostPort(ip.String(), target.port)
-			var conn net.Conn
-			var err error
-			if phone {
-				conn, err = r.connectPhone(ctx, dial, pinned)
-			} else {
-				conn, err = dial(ctx, "tcp4", pinned)
-			}
+		for _, ip := range candidates {
+			dialCtx, dialCancel := context.WithTimeout(ctx, share)
+			conn, err := dial(dialCtx, "tcp4", net.JoinHostPort(ip.String(), target.port))
+			dialCancel()
 			if err == nil && conn != nil {
 				return conn, nil
 			}
@@ -507,7 +608,7 @@ func (r *Relay) originDial(dial DialContextFunc, phone bool) DialContextFunc {
 				err = errors.New("dial returned no connection")
 			}
 			last = err
-			if ctx.Err() != nil || errors.Is(err, errPhoneCapacity) || errors.Is(err, errPhoneAuth) {
+			if ctx.Err() != nil {
 				break
 			}
 		}

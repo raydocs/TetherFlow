@@ -20,6 +20,10 @@ type bufferedConn struct {
 func (c *bufferedConn) Read(p []byte) (int, error) { return c.reader.Read(p) }
 func (c *bufferedConn) CloseWrite() error          { return closeWrite(c.Conn) }
 
+// errPhoneOriginRejected is a CONNECT 403: the phone refused the destination
+// (non-public peer or malformed host). It is the origin's fault, not the phone's.
+var errPhoneOriginRejected = errors.New("phone rejected the origin")
+
 func (r *Relay) connectPhone(ctx context.Context, dial DialContextFunc, target string) (_ net.Conn, err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	stopRelay := context.AfterFunc(r.ctx, cancel)
@@ -88,6 +92,9 @@ func (r *Relay) connectPhone(ctx context.Context, dial DialContextFunc, target s
 	if resp.StatusCode == http.StatusProxyAuthRequired {
 		r.markPhoneAuthStale(generation)
 		return nil, errPhoneAuth
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		return nil, errPhoneOriginRejected
 	}
 	if resp.ProtoMajor != 1 || resp.ProtoMinor > 1 || resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("CONNECT rejected with status %d", resp.StatusCode)

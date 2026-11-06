@@ -10,8 +10,9 @@ Only local peers are admitted; `AllowHomePeer` additionally permits the explicit
 configured home IPv4 source for Steam's LAN cache discovery scenario.
 
 Security checks run before either transport: strict suffix allowlist, port 80/443,
-public-only DNS (including rejection of mixed public/private answers), pinned
-numeric destinations and bidirectional hop-header stripping. Response headers,
+public-only home DNS (including rejection of mixed public/private answers) with
+pinned numeric home destinations, phone CONNECT by hostname (the phone resolves and
+checks the peer) and bidirectional hop-header stripping. Response headers,
 CONNECT handshakes, active requests and copy buffers are bounded. Only
 pre-response failures may fail over; interrupted bodies abort rather than append
 a second origin response. Downstream cancellation does not damage path health.

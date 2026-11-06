@@ -78,7 +78,7 @@ func tlsIntegration(t *testing.T, c Config, handler http.Handler, configure func
 	addr := origin.Listener.Addr().String()
 	var home, phone atomic.Int64
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if req.Method != "CONNECT" || req.Host != "8.8.8.8:443" || req.Header.Get("Proxy-Authorization") != "Bearer test-secret" {
+		if req.Method != "CONNECT" || req.Host != tlsTestHost+":443" || req.Header.Get("Proxy-Authorization") != "Bearer test-secret" {
 			t.Error("invalid authenticated pinned CONNECT443")
 			http.Error(w, "forbidden", 407)
 			return
@@ -330,6 +330,7 @@ func TestTLSRejectsBeforeDialWithoutWritingAlerts(t *testing.T) {
 			}
 			c.PhoneDialContext = c.HomeDialContext
 			if tt.private {
+				c.Uplinks = UplinkHomeOnly // desktop DNS validation now applies to the home path
 				c.LookupIP = func(context.Context, string) ([]net.IP, error) {
 					return []net.IP{net.ParseIP("8.8.8.8"), net.ParseIP("192.168.1.1")}, nil
 				}

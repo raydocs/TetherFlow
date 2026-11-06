@@ -208,20 +208,6 @@ func (r *Relay) serveTLS(parent context.Context, client net.Conn) {
 	if err != nil {
 		return
 	}
-	lookupCtx, lookupCancel := context.WithTimeout(ctx, r.cfg.DialTimeout)
-	ips, err := r.cfg.LookupIP(lookupCtx, host)
-	lookupCancel()
-	if err != nil || len(ips) == 0 || len(ips) > 64 {
-		return
-	}
-	pinned := make([]net.IP, len(ips))
-	for i, ip := range ips {
-		if !publicIP(ip) {
-			return
-		}
-		pinned[i] = append(net.IP(nil), ip...)
-	}
-	ctx = context.WithValue(ctx, targetKey{}, dialTarget{host: host, port: "443", ips: pinned})
 	previous := -1
 	for attempt := 0; attempt < 2 && ctx.Err() == nil; attempt++ {
 		i := r.acquire(previous)
@@ -232,7 +218,16 @@ func (r *Relay) serveTLS(parent context.Context, client net.Conn) {
 		if phone {
 			dial = r.phoneDial
 		}
-		upstream, err := r.originDial(dial, phone)(ctx, "tcp", net.JoinHostPort(host, "443"))
+		// Home resolves per attempt on the PC; the phone gets the hostname alone.
+		target := dialTarget{host: host, port: "443"}
+		var upstream net.Conn
+		var err error
+		if !phone {
+			target.ips, err = r.resolveHome(ctx, host)
+		}
+		if err == nil {
+			upstream, err = r.originDial(dial, phone)(context.WithValue(ctx, targetKey{}, target), "tcp", net.JoinHostPort(host, "443"))
+		}
 		sent := 0
 		if err == nil {
 			stopUp := context.AfterFunc(ctx, func() { upstream.Close() })
@@ -250,7 +245,17 @@ func (r *Relay) serveTLS(parent context.Context, client net.Conn) {
 			upstream.Close()
 		}
 		localCapacity := errors.Is(err, errDialBusy) || errors.Is(err, errPhoneCapacity) || errors.Is(err, errPhoneAuth)
-		r.finish(i, ctx.Err() == nil && !localCapacity)
+		if _, rejected := originRejection(err); rejected {
+			// A refused origin is not the uplink's health. A home resolve that was
+			// rejected never reached the uplink, so it is not an attempt either.
+			if i == 0 {
+				r.releaseUnused(i)
+			} else {
+				r.finish(i, false)
+			}
+		} else {
+			r.finish(i, ctx.Err() == nil && !localCapacity)
+		}
 		if sent != 0 || errors.Is(err, errDialBusy) {
 			return
 		}

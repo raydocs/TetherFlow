@@ -65,7 +65,7 @@ func budgetRelay(t *testing.T, c Config, handler http.Handler) (*Relay, *socketC
 	originAddr := strings.TrimPrefix(origin.URL, "http://")
 	clientSockets, serverSockets := new(socketCount), new(socketCount)
 	proxy := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if req.Method != http.MethodConnect || req.Host != "8.8.8.8:80" || req.Header.Get("Proxy-Authorization") != "Bearer test-secret" {
+		if req.Method != http.MethodConnect || !strings.HasSuffix(req.Host, ".steamcontent.com:80") || req.Header.Get("Proxy-Authorization") != "Bearer test-secret" {
 			t.Error("invalid CONNECT request")
 			http.Error(w, "CONNECT required", 407)
 			return
