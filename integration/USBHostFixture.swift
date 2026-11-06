@@ -13,7 +13,9 @@ struct USBHostFixture {
         }
         let egress = EgressPolicy(connection: { authority in
             NWConnection(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: authority.port == 443 ? tlsOriginPort : originPort)!, using: .tcp)
-        }, permits: { $0.status == .satisfied })
+        }, permits: { $0.status == .satisfied },
+        // Explicit loopback override: fixture only; production uses PublicAddress.allows.
+        peerAllowed: { _ in true })
         let server = try ProxyServer(token: CommandLine.arguments[3], port: 0, egress: egress) { event in
             if case .log(let message) = event { FileHandle.standardError.write(Data("SWIFT \(message)\n".utf8)) }
             if case .listening(let port) = event {

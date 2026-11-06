@@ -148,7 +148,8 @@ final class TransportTests: XCTestCase {
         defer { echo.stop() }
         let policy = EgressPolicy(connection: { _ in
             NWConnection(host: "127.0.0.1", port: echo.port, using: .tcp)
-        }, permits: { $0.status == .satisfied && $0.usesInterfaceType(.loopback) })
+        }, permits: { $0.status == .satisfied && $0.usesInterfaceType(.loopback) },
+           peerAllowed: { _ in true })
         let (_, port) = try start(egress: policy)
         let fd = try openSocket(port: port)
         defer { Darwin.close(fd) }
@@ -172,7 +173,8 @@ final class TransportTests: XCTestCase {
         let policy = EgressPolicy(connection: { authority in
             XCTAssertEqual(authority.port, 80)
             return NWConnection(host: "127.0.0.1", port: echo.port, using: .tcp)
-        }, permits: { $0.status == .satisfied && $0.usesInterfaceType(.loopback) })
+        }, permits: { $0.status == .satisfied && $0.usesInterfaceType(.loopback) },
+           peerAllowed: { _ in true })
         let (_, port) = try start(egress: policy)
         let fd = try openSocket(port: port)
         defer { Darwin.close(fd) }
@@ -190,7 +192,8 @@ final class TransportTests: XCTestCase {
         defer { echo.stop() }
         let policy = EgressPolicy(connection: { _ in
             NWConnection(host: "127.0.0.1", port: echo.port, using: .tcp)
-        }, permits: { $0.status == .satisfied && $0.usesInterfaceType(.loopback) })
+        }, permits: { $0.status == .satisfied && $0.usesInterfaceType(.loopback) },
+           peerAllowed: { _ in true })
         let (server, port) = try start(egress: policy, opened: accepted)
         var sockets: [Int32] = []
         defer { sockets.forEach { Darwin.close($0) } }
@@ -222,13 +225,198 @@ final class TransportTests: XCTestCase {
         defer { echo.stop() }
         let policy = EgressPolicy(connection: { _ in
             NWConnection(host: "127.0.0.1", port: echo.port, using: .tcp)
-        }, permits: { _ in false })
+        }, permits: { _ in false }, peerAllowed: { _ in true })
         let (_, port) = try start(egress: policy)
         let fd = try openSocket(port: port)
         defer { Darwin.close(fd) }
         try writeAll(fd, request("example.com:443", method: "CONNECT"))
         XCTAssertTrue(try readHeader(fd).hasPrefix("HTTP/1.1 502"))
         XCTAssertTrue(try readUntilEOF(fd).isEmpty)
+    }
+
+    // MARK: R4 peer policy and protocol version
+
+    private final class Recorder { var endpoints: [NWEndpoint?] = []; var connections = 0 }
+
+    private func loopbackPolicy(echo: EchoPeer, recorder: Recorder = Recorder(),
+                                peerAllowed: @escaping (NWEndpoint?) -> Bool) -> EgressPolicy {
+        EgressPolicy(connection: { _ in
+            recorder.connections += 1
+            return NWConnection(host: "127.0.0.1", port: echo.port, using: .tcp)
+        }, permits: { $0.status == .satisfied && $0.usesInterfaceType(.loopback) },
+           peerAllowed: { recorder.endpoints.append($0); return peerAllowed($0) })
+    }
+
+    func testNonPublicLiteralRejectedBeforeAnyConnection() throws {
+        let recorder = Recorder()
+        let policy = EgressPolicy(connection: { _ in
+            recorder.connections += 1
+            XCTFail("a non-public literal must not create a connection")
+            return NWConnection(host: "127.0.0.1", port: 9, using: .tcp)
+        }, permits: { _ in true }, peerAllowed: { _ in true })
+        let (_, port) = try start(egress: policy)
+        for target in ["127.0.0.1:443", "10.0.0.1:80", "169.254.169.254:80", "192.168.1.1:443",
+                       "100.64.0.1:443", "0.0.0.0:80", "[::1]:443", "[fe80::1]:443", "[fc00::1]:80",
+                       "[::ffff:127.0.0.1]:443", "[64:ff9b::7f00:1]:443", "[2001:db8::1]:443"] {
+            let fd = try openSocket(port: port)
+            defer { Darwin.close(fd) }
+            try writeAll(fd, request(target, method: "CONNECT"))
+            XCTAssertTrue(try readHeader(fd).hasPrefix("HTTP/1.1 403"), target)
+            XCTAssertTrue(try readUntilEOF(fd).isEmpty, target)
+        }
+        XCTAssertEqual(recorder.connections, 0)
+    }
+
+    func testLegacyNumericHostsRejected() throws {
+        let recorder = Recorder()
+        let policy = EgressPolicy(connection: { _ in
+            recorder.connections += 1
+            XCTFail("a legacy numeric host must not create a connection")
+            return NWConnection(host: "127.0.0.1", port: 9, using: .tcp)
+        }, permits: { _ in true }, peerAllowed: { _ in true })
+        let (_, port) = try start(egress: policy)
+        let hosts = ["127.1", "2130706433", "0x7f.0.0.1", "0x7f000001", "127.0.1", "010.0.0.1", "1.2.3.04",
+                     "08.8.8.8", "300.1.1.1", "1.2.3.4.5", "7f.0.0.0x1"]
+        for host in hosts {
+            XCTAssertThrowsError(try Authority("\(host):443"), host) {
+                XCTAssertEqual($0 as? ProtocolFailure, .malformed, host)
+            }
+            let fd = try openSocket(port: port)
+            defer { Darwin.close(fd) }
+            try writeAll(fd, request("\(host):443", method: "CONNECT"))
+            XCTAssertTrue(try readHeader(fd).hasPrefix("HTTP/1.1 400"), host)
+        }
+        XCTAssertEqual(recorder.connections, 0)
+        // Names that merely contain digits stay valid.
+        XCTAssertNoThrow(try Authority("cdn1.example.com:443"))
+        XCTAssertNoThrow(try Authority("1.example.com:443"))
+    }
+
+    func testNonPublicPeerGets403AndNoBytesReachPeer() throws {
+        let echo = try EchoPeer()
+        defer { echo.stop() }
+        let recorder = Recorder()
+        // Production peer policy against a loopback peer: the actual connected peer is non-public.
+        let (_, port) = try start(egress: loopbackPolicy(echo: echo, recorder: recorder,
+                                                         peerAllowed: PublicAddress.allows))
+        let fd = try openSocket(port: port)
+        defer { Darwin.close(fd) }
+        try writeAll(fd, request("cdn.example.com:443", method: "CONNECT") + Data("must-not-be-forwarded".utf8))
+        let header = try readHeader(fd)
+        XCTAssertTrue(header.hasPrefix("HTTP/1.1 403"), header)
+        XCTAssertFalse(header.contains("200"))
+        XCTAssertTrue(try readUntilEOF(fd).isEmpty)
+        XCTAssertEqual(recorder.endpoints.count, 1)
+        XCTAssertEqual(echo.receivedBytes, 0)
+    }
+
+    func testNilOrNamedPeerFailsClosed() throws {
+        XCTAssertFalse(PublicAddress.allows(nil))
+        XCTAssertFalse(PublicAddress.allows(.hostPort(host: .name("cdn.example.com", nil), port: 443)))
+        XCTAssertFalse(PublicAddress.allows(.service(name: "n", type: "_t._tcp", domain: "local", interface: nil)))
+        XCTAssertFalse(PublicAddress.allows(.unix(path: "/tmp/x")))
+        XCTAssertTrue(PublicAddress.allows(.hostPort(host: .ipv4(try XCTUnwrap(IPv4Address("8.8.8.8"))), port: 443)))
+        XCTAssertTrue(PublicAddress.allows(.hostPort(host: .ipv6(try XCTUnwrap(IPv6Address("2606:4700:4700::1111"))), port: 443)))
+        XCTAssertFalse(PublicAddress.allows(.hostPort(host: .ipv4(try XCTUnwrap(IPv4Address("127.0.0.1"))), port: 443)))
+        XCTAssertFalse(PublicAddress.allows(.hostPort(host: .ipv6(try XCTUnwrap(IPv6Address("::ffff:10.0.0.1"))), port: 443)))
+
+        // On the wire: the session must hand the policy the unmodified endpoint and fail closed on its verdict.
+        let echo = try EchoPeer()
+        defer { echo.stop() }
+        let (_, port) = try start(egress: loopbackPolicy(echo: echo) { _ in PublicAddress.allows(nil) })
+        let fd = try openSocket(port: port)
+        defer { Darwin.close(fd) }
+        try writeAll(fd, request("cdn.example.com:443", method: "CONNECT"))
+        XCTAssertTrue(try readHeader(fd).hasPrefix("HTTP/1.1 403"))
+        XCTAssertTrue(try readUntilEOF(fd).isEmpty)
+        XCTAssertEqual(echo.receivedBytes, 0)
+    }
+
+    func testHostnameConnectReturns200WhenPeerAllowed() throws {
+        let echo = try EchoPeer()
+        defer { echo.stop() }
+        let recorder = Recorder()
+        let (_, port) = try start(egress: loopbackPolicy(echo: echo, recorder: recorder) { _ in true })
+        let fd = try openSocket(port: port)
+        defer { Darwin.close(fd) }
+        let payload = Data("hello-through-allowed-peer".utf8)
+        try writeAll(fd, request("cdn.example.com:443", method: "CONNECT") + payload)
+        XCTAssertTrue(try readHeader(fd).hasPrefix("HTTP/1.1 200 Connection Established"))
+        Darwin.shutdown(fd, SHUT_WR)
+        XCTAssertEqual(try readUntilEOF(fd), payload)
+        // The policy saw the real numeric peer of the established socket, not the requested name.
+        guard case .hostPort(let host, let peerPort)? = recorder.endpoints.first else {
+            return XCTFail("peerAllowed did not receive a host/port endpoint: \(String(describing: recorder.endpoints))")
+        }
+        XCTAssertEqual(peerPort, echo.port)
+        if case .ipv4(let address) = host { XCTAssertEqual(address, IPv4Address.loopback) }
+        else { XCTFail("peer endpoint was not numeric: \(host)") }
+    }
+
+    func testPublicLiteralReachesConnectionAndPeerCheckStillRuns() throws {
+        let echo = try EchoPeer()
+        defer { echo.stop() }
+        let recorder = Recorder()
+        let (_, port) = try start(egress: loopbackPolicy(echo: echo, recorder: recorder) { _ in false })
+        let fd = try openSocket(port: port)
+        defer { Darwin.close(fd) }
+        try writeAll(fd, request("8.8.8.8:443", method: "CONNECT") + Data("x".utf8))
+        XCTAssertTrue(try readHeader(fd).hasPrefix("HTTP/1.1 403"))
+        XCTAssertEqual(recorder.connections, 1)
+        XCTAssertEqual(echo.receivedBytes, 0)
+    }
+
+    func testProductionPeerPolicyRejectsLoopbackRemoteEndpoint() throws {
+        let queue = DispatchQueue(label: "peer-policy-test")
+        let ready = expectation(description: "listener ready")
+        let listener = try NWListener(using: .tcp, on: .any)
+        listener.newConnectionHandler = { connection in connection.start(queue: queue) }
+        listener.stateUpdateHandler = { state in if case .ready = state { ready.fulfill() } }
+        listener.start(queue: queue)
+        defer { listener.cancel() }
+        wait(for: [ready], timeout: 5)
+        let peerReady = expectation(description: "connection ready")
+        let connection = NWConnection(host: "127.0.0.1", port: try XCTUnwrap(listener.port), using: .tcp)
+        var verdict: Bool?
+        var endpoint: NWEndpoint?
+        connection.stateUpdateHandler = { state in
+            if case .ready = state {
+                endpoint = connection.currentPath?.remoteEndpoint
+                verdict = EgressPolicy.cellular.peerAllowed(endpoint)
+                peerReady.fulfill()
+            }
+        }
+        connection.start(queue: queue)
+        defer { connection.stateUpdateHandler = nil; connection.cancel() }
+        wait(for: [peerReady], timeout: 5)
+        XCTAssertNotNil(endpoint, "a ready loopback connection must report a remote endpoint")
+        XCTAssertEqual(verdict, false)
+        XCTAssertFalse(EgressPolicy.cellular.peerAllowed(nil))
+    }
+
+    func testDiagnosticInfoBodyAndAuth() throws {
+        XCTAssertEqual(ProxyProtocol.version, 2)
+        let (_, port) = try start()
+        let fd = try openSocket(port: port)
+        defer { Darwin.close(fd) }
+        try writeAll(fd, request("/diagnostic/info"))
+        let header = try readHeader(fd)
+        XCTAssertTrue(header.hasPrefix("HTTP/1.1 200 OK"), header)
+        XCTAssertTrue(header.contains("Content-Length: 14\r\n"), header)
+        XCTAssertTrue(header.contains("Content-Type: application/json\r\n"), header)
+        XCTAssertEqual(String(decoding: try readUntilEOF(fd), as: UTF8.self), "{\"protocol\":2}")
+
+        let unauthenticated = try openSocket(port: port)
+        defer { Darwin.close(unauthenticated) }
+        try writeAll(unauthenticated, request("/diagnostic/info", authenticated: false))
+        let rejected = try readHeader(unauthenticated)
+        XCTAssertTrue(rejected.hasPrefix("HTTP/1.1 407"), rejected)
+        XCTAssertTrue(try readUntilEOF(unauthenticated).isEmpty)
+
+        let wrongMethod = try openSocket(port: port)
+        defer { Darwin.close(wrongMethod) }
+        try writeAll(wrongMethod, request("/diagnostic/info", method: "POST"))
+        XCTAssertTrue(try readHeader(wrongMethod).hasPrefix("HTTP/1.1 405"))
     }
 
     func testStopRacingAcceptanceClosesSocket() throws {
@@ -265,7 +453,10 @@ private final class EchoPeer {
     let listener: NWListener
     let queue = DispatchQueue(label: "echo")
     var connections: [NWConnection] = []
+    private var receivedCount = 0
     var port: NWEndpoint.Port { listener.port! }
+    /// Application bytes this peer has read from any connection.
+    var receivedBytes: Int { queue.sync { receivedCount } }
 
     init() throws {
         listener = try NWListener(using: .tcp, on: .any)
@@ -286,6 +477,7 @@ private final class EchoPeer {
     func read(_ connection: NWConnection) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 16384) { [weak self] data, _, eof, error in
             guard error == nil else { connection.cancel(); return }
+            self?.receivedCount += data?.count ?? 0
             connection.send(content: data, contentContext: eof ? .finalMessage : .defaultMessage,
                             isComplete: true, completion: .contentProcessed { error in
                 if error != nil { connection.cancel() }

@@ -1,10 +1,13 @@
 import Foundation
 import Network
 
-/// Internal transport seam: production always uses cellular; host tests can use a loopback peer.
+/// Internal transport seam: production always uses cellular and a public-only peer; host tests can
+/// use a loopback peer. `peerAllowed` has no default so every fixture states its peer policy.
 struct EgressPolicy {
     let connection: (Authority) -> NWConnection
     let permits: (NWPath) -> Bool
+    /// Receives the established path's `remoteEndpoint` (nil when unknown). Runs before CONNECT 200.
+    let peerAllowed: (NWEndpoint?) -> Bool
 
     static let cellular = EgressPolicy(connection: { authority in
         let tcp = NWProtocolTCP.Options()
@@ -14,7 +17,8 @@ struct EgressPolicy {
         parameters.multipathServiceType = .disabled
         return NWConnection(host: NWEndpoint.Host(authority.host),
                             port: NWEndpoint.Port(rawValue: authority.port)!, using: parameters)
-    }, permits: { $0.status == .satisfied && $0.usesInterfaceType(.cellular) })
+    }, permits: { $0.status == .satisfied && $0.usesInterfaceType(.cellular) },
+       peerAllowed: PublicAddress.allows)
 }
 
 public enum ProxyEvent {
@@ -228,12 +232,16 @@ private final class ProxySession {
                     case .download(let count):
                         guard trailing.isEmpty else { self.respond(400, "Bad Request"); return }
                         self.download(count)
+                    case .info:
+                        guard trailing.isEmpty else { self.respond(400, "Bad Request"); return }
+                        self.sendInfo()
                     }
                     return
                 }
                 if eof { self.cancel(reason: "incomplete header EOF") } else { self.readHeader() }
             } catch ProtocolFailure.headerTooLarge { self.respond(431, "Request Header Fields Too Large")
             } catch ProtocolFailure.forbiddenPort { self.respond(403, "Forbidden")
+            } catch ProtocolFailure.nonPublicAddress { self.respond(403, "Forbidden")
             } catch ProtocolFailure.unsupported { self.respond(405, "Method Not Allowed")
             } catch { self.respond(400, "Bad Request") }
         }
@@ -267,6 +275,11 @@ private final class ProxySession {
                 guard self.phase == .connecting else { return }
                 guard let path = connection.currentPath, self.egress.permits(path) else {
                     self.respond(502, "Bad Gateway"); return
+                }
+                // The actual connected peer, checked before 200 or any payload byte. Nil and
+                // name-typed endpoints are passed through as-is and fail closed in the policy.
+                guard self.egress.peerAllowed(path.remoteEndpoint) else {
+                    self.respond(403, "Forbidden"); return
                 }
                 self.transition(.tunnel)
                 self.client.send(content: Data("HTTP/1.1 200 Connection Established\r\n\r\n".utf8),
@@ -333,6 +346,15 @@ private final class ProxySession {
         finishedDirections.insert(uploading)
         // A failed write must not cancel the other direction's buffered read/write.
         if finishedDirections.count == 2 { cancel(reason: relayFailure ?? "tunnel complete") }
+    }
+
+    private func sendInfo() {
+        transition(.closing)
+        let body = ProxyProtocol.infoBody
+        let header = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: \(body.count)\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n"
+        client.send(content: Data(header.utf8) + body, completion: .contentProcessed { [weak self] _ in
+            self?.cancel(reason: "HTTP 200 info")
+        })
     }
 
     private func download(_ count: Int) {

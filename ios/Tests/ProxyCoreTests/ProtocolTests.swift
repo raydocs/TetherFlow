@@ -94,6 +94,9 @@ final class ProtocolTests: XCTestCase {
             XCTAssertThrowsError(try parse("GET /diagnostic/download?bytes=\(count) HTTP/1.1\r\nHost: a\r\n\r\n").route())
         }
         XCTAssertThrowsError(try parse("GET /pac HTTP/1.1\r\nHost: a\r\n\r\n").route())
+        XCTAssertEqual(try parse("GET /diagnostic/info HTTP/1.1\r\nHost: a\r\n\r\n").route(), .info)
+        XCTAssertThrowsError(try parse("POST /diagnostic/info HTTP/1.1\r\nHost: a\r\n\r\n").route())
+        XCTAssertThrowsError(try parse("GET /diagnostic/info?x=1 HTTP/1.1\r\nHost: a\r\n\r\n").route())
     }
 
     func testTokenAndChunkConfiguration() throws {

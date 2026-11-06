@@ -1,0 +1,133 @@
+# Shared public-IP policy vectors. Columns: address, go, swift (allow|deny).
+# Go = desktop/internal/steamaccel publicIP (home path, authoritative deny list).
+# Swift = ios/Sources/ProxyCore PublicAddress (phone path).
+# The ONLY intended difference: 64:ff9b::/96 (well-known NAT64) with an embedded public IPv4 is
+# allowed on the phone (IPv6-only carriers) and denied on the home path. The embedded IPv4 is still
+# checked on the phone. Carrier-specific NAT64 prefixes look like global IPv6; that is residual.
+# Zone ids are stripped by Swift; Go's net.ParseIP rejects them, so both fail closed on non-public.
+address	go	swift
+# --- IPv4 denied: each Go deny prefix, first and last address and one in the middle
+0.0.0.0	deny	deny
+0.255.255.255	deny	deny
+10.0.0.0	deny	deny
+10.0.0.1	deny	deny
+10.255.255.255	deny	deny
+100.64.0.0	deny	deny
+100.64.1.1	deny	deny
+100.127.255.255	deny	deny
+127.0.0.1	deny	deny
+127.255.255.255	deny	deny
+169.254.0.0	deny	deny
+169.254.169.254	deny	deny
+169.254.255.255	deny	deny
+172.16.0.0	deny	deny
+172.16.1.1	deny	deny
+172.31.255.255	deny	deny
+192.0.0.0	deny	deny
+192.0.0.255	deny	deny
+192.0.2.0	deny	deny
+192.0.2.1	deny	deny
+192.88.99.0	deny	deny
+192.88.99.255	deny	deny
+192.168.0.0	deny	deny
+192.168.1.1	deny	deny
+192.168.255.255	deny	deny
+198.18.0.0	deny	deny
+198.18.0.1	deny	deny
+198.19.255.255	deny	deny
+198.51.100.0	deny	deny
+198.51.100.1	deny	deny
+203.0.113.0	deny	deny
+203.0.113.1	deny	deny
+224.0.0.0	deny	deny
+224.0.0.1	deny	deny
+239.255.255.255	deny	deny
+240.0.0.0	deny	deny
+240.0.0.1	deny	deny
+255.255.255.255	deny	deny
+# --- IPv4 public: addresses immediately outside each denied range
+1.0.0.1	allow	allow
+1.1.1.1	allow	allow
+8.8.8.8	allow	allow
+9.255.255.255	allow	allow
+11.0.0.0	allow	allow
+100.63.255.255	allow	allow
+100.128.0.0	allow	allow
+126.255.255.255	allow	allow
+128.0.0.0	allow	allow
+169.253.255.255	allow	allow
+169.255.0.0	allow	allow
+172.15.255.255	allow	allow
+172.32.0.0	allow	allow
+191.255.255.255	allow	allow
+192.0.1.0	allow	allow
+192.0.3.0	allow	allow
+192.88.98.255	allow	allow
+192.88.100.0	allow	allow
+192.167.255.255	allow	allow
+192.169.0.0	allow	allow
+198.17.255.255	allow	allow
+198.20.0.0	allow	allow
+198.51.99.255	allow	allow
+198.51.101.0	allow	allow
+203.0.112.255	allow	allow
+203.0.114.0	allow	allow
+223.255.255.255	allow	allow
+# --- IPv4-mapped IPv6 follows the embedded IPv4
+::ffff:127.0.0.1	deny	deny
+::ffff:10.0.0.1	deny	deny
+::ffff:192.168.1.1	deny	deny
+::ffff:169.254.169.254	deny	deny
+::ffff:8.8.8.8	allow	allow
+::ffff:1.1.1.1	allow	allow
+# --- IPv6 denied
+::	deny	deny
+::1	deny	deny
+::2	deny	deny
+::1.2.3.4	deny	deny
+::7f00:1	deny	deny
+fc00::1	deny	deny
+fd00::1	deny	deny
+fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff	deny	deny
+fe80::1	deny	deny
+fe80::1%lo0	deny	deny
+febf::1	deny	deny
+ff00::1	deny	deny
+ff02::1	deny	deny
+100::	deny	deny
+100::1	deny	deny
+64:ff9b:1::1	deny	deny
+64:ff9b:1::808:808	deny	deny
+2001::1	deny	deny
+2001:0:4136:e378:8000:63bf:3fff:fdd2	deny	deny
+2001:1ff:ffff:ffff:ffff:ffff:ffff:ffff	deny	deny
+2001:db8::1	deny	deny
+2001:db8:ffff::1	deny	deny
+2002::1	deny	deny
+2002:7f00:1::1	deny	deny
+2002:808:808::1	deny	deny
+3fff::1	deny	deny
+3fff:fff:ffff:ffff:ffff:ffff:ffff:ffff	deny	deny
+4000::1	deny	deny
+5f00::1	deny	deny
+1fff:ffff::1	deny	deny
+# --- IPv6 public
+2000::1	allow	allow
+2001:200::1	allow	allow
+2001:4860:4860::8888	allow	allow
+2001:dba::1	allow	allow
+2606:4700:4700::1111	allow	allow
+2600::1	allow	allow
+2a00:1450:4001::1	allow	allow
+3fff:1000::1	allow	allow
+3ffe::1	allow	allow
+# --- 64:ff9b::/96 well-known NAT64: the single documented Go/Swift difference
+64:ff9b::808:808	deny	allow
+64:ff9b::101:101	deny	allow
+64:ff9b::8.8.8.8	deny	allow
+64:ff9b::7f00:1	deny	deny
+64:ff9b::a00:1	deny	deny
+64:ff9b::c0a8:101	deny	deny
+64:ff9b::a9fe:a9fe	deny	deny
+64:ff9b::	deny	deny
+64:ff9b::ffff:ffff	deny	deny

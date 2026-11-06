@@ -112,8 +112,14 @@ HTTP/1.1, ASCII headers, and one nonempty Host header are required. Duplicate
 headers, folding/tabs/control bytes, request bodies and ambiguous framing are
 rejected. This is a deliberately narrow HTTP subset.
 
+Protocol version: `GET /diagnostic/info HTTP/1.1` with the same `Proxy-Authorization`
+returns `200` with `Content-Length: 14` and body `{"protocol":2}`. Version 2 means the
+phone validates the actual connected peer before sending `200 Connection Established`
+(next section). A newer desktop must refuse a phone that reports anything else
+("update the iOS app"). Wrong or missing token gives 407; other methods or query strings 405.
+
 Responses: 407 missing/wrong token (Bearer challenge), 403 disallowed destination
-port, 431 header >16 KiB including CRLF terminator, 400 malformed/bad diagnostic
+port or non-public address (see peer policy), 431 header >16 KiB including CRLF terminator, 400 malformed/bad diagnostic
 size, 405 unsupported route, 408 header deadline, 502 rejected/failed egress,
 504 connection deadline. All error bodies are empty and connections close.
 The 33rd simultaneous accepted socket is closed rather than queued indefinitely.
@@ -136,6 +142,21 @@ app does not install/configure Windows interception or Steam lancache DNS.
   unsatisfied paths close the tunnel. Waiting/unavailable cellular times out.
   DNS is delegated to Network.framework/system resolution; this prototype makes
   **no independent DNS-privacy/interface-routing guarantee**.
+- Peer policy (protocol 2): a CONNECT whose authority is a non-public IP literal
+  (RFC1918, loopback, link-local, CGNAT, documentation, multicast, reserved, ULA, ...)
+  gets 403 **before any `NWConnection` exists**. Legacy numeric hosts (`127.1`,
+  `0x7f.0.0.1`, `2130706433`, leading-zero quads) are 400 malformed. For hostnames,
+  once the connection is `.ready`, `currentPath.remoteEndpoint` must be a numeric
+  public address, otherwise 403; a nil or name-typed endpoint fails closed. No byte
+  is forwarded and no 200 is sent before that check. Accepted trade-off: a TCP
+  handshake to a non-public peer can complete before rejection (ports 80/443 only,
+  no payload). The policy is the same list as the Go relay's `publicIP`, pinned by
+  `integration/public-ip-vectors.tsv` (read by both test suites); the one difference
+  is `64:ff9b::/96` (NAT64 on IPv6-only carriers), allowed here when the embedded IPv4
+  is public. A carrier-specific NAT64 prefix looks like global IPv6 and cannot be
+  checked: residual. Test fixtures that use a loopback peer must pass an explicit
+  `peerAllowed` override to `EgressPolicy` (it has no default); production
+  `.cellular` uses `PublicAddress.allows`. Not verified on a physical iPhone.
 - One serial queue owns sockets, session table, deadlines and cancellation.
   A maximum of **32 sessions total** includes diagnostic and incomplete requests.
   Receives are <=64 KiB, and each direction waits for send `contentProcessed`

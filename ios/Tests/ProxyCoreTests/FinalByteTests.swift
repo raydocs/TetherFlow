@@ -124,7 +124,8 @@ final class FinalByteTests: XCTestCase {
         let server = try ProxyServer(token: String(repeating: "c", count: 64), port: 0,
                                      egress: EgressPolicy(connection: { _ in
             NWConnection(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: origin.port)!, using: .tcp)
-        }, permits: { $0.status == .satisfied && $0.usesInterfaceType(.loopback) })) { event in
+        }, permits: { $0.status == .satisfied && $0.usesInterfaceType(.loopback) },
+           peerAllowed: { _ in true })) { event in
             if case .listening(let bound) = event { port = bound; ready.fulfill() }
             if case .log(let message) = event, !message.hasPrefix("Session opened") {
                 print("FINAL-BYTE \(message)")

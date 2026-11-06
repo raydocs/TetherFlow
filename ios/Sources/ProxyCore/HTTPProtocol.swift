@@ -1,8 +1,101 @@
 import Foundation
 import Darwin
+import Network
 
 public enum ProtocolFailure: Error, Equatable {
-    case headerTooLarge, malformed, unsupported, forbiddenPort, invalidByteCount
+    case headerTooLarge, malformed, unsupported, forbiddenPort, invalidByteCount, nonPublicAddress
+}
+
+/// Wire protocol version reported by `GET /diagnostic/info`. 2 = the phone validates the connected peer.
+public enum ProxyProtocol {
+    public static let version = 2
+    static var infoBody: Data { Data("{\"protocol\":\(version)}".utf8) }
+}
+
+/// Public-address policy for the phone path. Mirrors the Go `publicIP` deny list (see
+/// `integration/public-ip-vectors.tsv`, the shared vectors) with one documented exception:
+/// `64:ff9b::/96` (NAT64 on IPv6-only carriers) is allowed when its embedded IPv4 is public.
+/// Carrier-specific NAT64 prefixes look like global IPv6 and cannot be checked; that is residual.
+enum PublicAddress {
+    private struct Prefix { let bytes: [UInt8]; let bits: Int }
+
+    private static func prefixes(_ cidrs: [String]) -> [Prefix] {
+        cidrs.map { cidr in
+            let parts = cidr.split(separator: "/")
+            guard parts.count == 2, let bits = Int(parts[1]), let bytes = parseLiteral(String(parts[0])) else {
+                preconditionFailure("bad prefix \(cidr)")
+            }
+            return Prefix(bytes: bytes, bits: bits)
+        }
+    }
+
+    private static let deniedV4 = prefixes([
+        "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16",
+        "172.16.0.0/12", "192.0.0.0/24", "192.0.2.0/24", "192.88.99.0/24", "192.168.0.0/16",
+        "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/3"])
+    // 64:ff9b::/96 is handled before this list: allowed only with a public embedded IPv4.
+    private static let deniedV6 = prefixes([
+        "::/96", "64:ff9b:1::/48", "100::/64", "2001::/23", "2001:db8::/32", "2002::/16",
+        "3fff::/20", "5f00::/16", "fc00::/7", "fe80::/10", "ff00::/8"])
+    private static let nat64 = prefixes(["64:ff9b::/96"])[0]
+    private static let v4Mapped = prefixes(["::ffff:0:0/96"])[0]
+    private static let globalUnicastV6 = prefixes(["2000::/3"])[0]
+
+    private static func contains(_ prefix: Prefix, _ address: [UInt8]) -> Bool {
+        guard prefix.bytes.count == address.count else { return false }
+        for index in 0..<prefix.bytes.count {
+            let remaining = prefix.bits - index * 8
+            if remaining <= 0 { return true }
+            let mask: UInt8 = remaining >= 8 ? 0xff : UInt8(truncatingIfNeeded: 0xff << (8 - remaining))
+            if (prefix.bytes[index] ^ address[index]) & mask != 0 { return false }
+        }
+        return true
+    }
+
+    /// Strict dotted-quad IPv4 (no leading zeros, no legacy forms) or an IPv6 literal (zone id ignored).
+    /// Returns nil for anything else, including legacy numeric hosts such as `127.1`.
+    static func parseLiteral(_ text: String) -> [UInt8]? {
+        if text.contains(":") {
+            let bare = text.split(separator: "%", maxSplits: 1, omittingEmptySubsequences: false)[0]
+            var address = in6_addr()
+            guard bare.withCString({ inet_pton(AF_INET6, $0, &address) }) == 1 else { return nil }
+            return withUnsafeBytes(of: &address) { Array($0) }
+        }
+        let parts = text.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 4 else { return nil }
+        var bytes: [UInt8] = []
+        for part in parts {
+            guard (1...3).contains(part.utf8.count), part.utf8.allSatisfy({ (48...57).contains($0) }),
+                  part.utf8.count == 1 || part.utf8.first != 48,
+                  let value = UInt8(part) else { return nil }
+            bytes.append(value)
+        }
+        return bytes
+    }
+
+    static func allows(literal: String) -> Bool {
+        guard let bytes = parseLiteral(literal) else { return false }
+        return allows(bytes: bytes)
+    }
+
+    static func allows(bytes: [UInt8]) -> Bool {
+        if bytes.count == 4 { return !deniedV4.contains { contains($0, bytes) } }
+        guard bytes.count == 16 else { return false }
+        if contains(v4Mapped, bytes) || contains(nat64, bytes) { return allows(bytes: Array(bytes[12...])) }
+        guard contains(globalUnicastV6, bytes) else { return false }
+        return !deniedV6.contains { contains($0, bytes) }
+    }
+
+    /// The actual connected peer. Anything that is not a numeric host (nil, name, service, unix) fails closed.
+    static func allows(_ endpoint: NWEndpoint?) -> Bool {
+        guard case .hostPort(let host, _)? = endpoint else { return false }
+        switch host {
+        case .ipv4(let address): return allows(bytes: Array(address.rawValue))
+        case .ipv6(let address): return allows(bytes: Array(address.rawValue))
+        case .name: return false
+        @unknown default: return false
+        }
+    }
 }
 
 public struct Authority: Equatable {
@@ -34,17 +127,29 @@ public struct Authority: Equatable {
                       label.utf8.allSatisfy { (65...90).contains($0) || (97...122).contains($0) ||
                           (48...57).contains($0) || $0 == 45 }
                   }) else { throw ProtocolFailure.malformed }
+            // A strict dotted quad is an IP literal (checked by route()). Any other host whose last
+            // label is numeric (127.1, 2130706433, 0x7f.0.0.1) can be read as an address by downstream
+            // stacks, so it is malformed, as in Go's validDNSName; so are inet_aton hex last labels.
+            if PublicAddress.parseLiteral(host) == nil, let last = labels.last {
+                let lowered = last.lowercased()
+                let hex = lowered.hasPrefix("0x") && lowered.dropFirst(2).allSatisfy { $0.isHexDigit }
+                if last.utf8.allSatisfy({ (48...57).contains($0) }) || hex { throw ProtocolFailure.malformed }
+            }
         }
         guard !portText.isEmpty, portText.utf8.allSatisfy({ (48...57).contains($0) }),
               let port = UInt16(portText), port > 0 else { throw ProtocolFailure.malformed }
         self.host = host
         self.port = port
     }
+
+    /// True for a numeric IPv4/IPv6 authority (no DNS involved).
+    public var isIPLiteral: Bool { PublicAddress.parseLiteral(host) != nil }
 }
 
 public enum ProxyRoute: Equatable {
     case connect(Authority)
     case download(Int)
+    case info
 }
 
 public struct ProxyRequest {
@@ -69,8 +174,13 @@ public struct ProxyRequest {
         if method == "CONNECT" {
             let authority = try Authority(target)
             guard authority.port == 80 || authority.port == 443 else { throw ProtocolFailure.forbiddenPort }
+            // A non-public literal never reaches a connection; hostnames are checked on the real peer.
+            if authority.isIPLiteral, !PublicAddress.allows(literal: authority.host) {
+                throw ProtocolFailure.nonPublicAddress
+            }
             return .connect(authority)
         }
+        if method == "GET", target == "/diagnostic/info" { return .info }
         let prefix = "/diagnostic/download?bytes="
         if method == "GET", target.hasPrefix(prefix) {
             let text = target.dropFirst(prefix.count)
