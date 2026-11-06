@@ -57,3 +57,6 @@ R7主线程steamaccel race三轮/Windowsvet及跨语言3轮通过；R13主线程
 
 ## R9集成验证中
 已检查并集成6b4ea04：手机hostname CONNECT不再依赖桌面DNS；家庭解析结果保持公网固定校验，多IPv4分配公平拨号预算（总超时<4秒不能保证尝试4个地址，已记录）。CONNECT fixture由IP改hostname是协议变化，不删除完整性/预算断言。主线程race三轮、Windowsvet、跨语言10轮启动，待结果。R13代码2ac9739的CI42202371491已全绿，含Debug+Release构建及产物检查；最新R10/R9尚不在该证据内。R11进行中，R12须等其完成后接线。
+
+## R9主线程验证完成
+steamaccel race三轮通过（54.983秒）、Windowsvet通过；跨语言10轮在debug与优化Swift fixture两种编译、直连与原生USBmux两个模式均通过，原始日志/tmp/tetherflow-r9-integration.log，无忽略失败。R11仍待自动完成通知后再集成；不重复轮询代理、不启动重叠main.go写入任务。
