@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -813,6 +814,7 @@ type tlsPathHarness struct {
 	r        *Relay
 	l        net.Listener
 	upstream chan net.Conn
+	wrap     func(net.Conn) net.Conn // optional: script the relay's side of the upstream socket
 }
 
 func newTLSPathHarness(t *testing.T, idle time.Duration) *tlsPathHarness {
@@ -836,7 +838,11 @@ func newTLSPathHarness(t *testing.T, idle time.Duration) *tlsPathHarness {
 	c.HomeWeight, c.PhoneWeight = 1000, 1
 	c.IdleTimeout = idle
 	c.HomeDialContext = func(ctx context.Context, network, target string) (net.Conn, error) {
-		return (&net.Dialer{}).DialContext(ctx, "tcp", origin.Addr().String())
+		conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", origin.Addr().String())
+		if err == nil && h.wrap != nil {
+			conn = h.wrap(conn)
+		}
+		return conn, err
 	}
 	h.r = newRelay(t, c)
 	h.l, _ = startTLSIngress(t, h.r)
@@ -951,4 +957,78 @@ func TestTLSCancelDoesNotPoisonPath(t *testing.T) {
 	h.open(t) // upstream silent: zero downstream bytes, the worst case for misclassification
 	h.r.Close()
 	requirePathHealthy(t, h.settle(t))
+}
+
+// Teardown after a complete response. A client that has finished (close_notify,
+// then FIN) forwards its last bytes to an upstream that already closed; the peer
+// answers with RST, and on Windows that RST replaces the pending FIN, so the
+// relay's upstream read, write or half-close fails. The client is done and was
+// served: that is not the uplink's fault.
+
+// answered drives a session to "response delivered, client finished": the
+// upstream has answered, the client has seen it and half-closed, and the relay
+// has passed that half-close upstream.
+func (h *tlsPathHarness) answered(t *testing.T) (client, upstream net.Conn) {
+	t.Helper()
+	client, upstream = h.open(t)
+	if _, err := upstream.Write([]byte("response")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadFull(client, make([]byte, len("response"))); err != nil {
+		t.Fatal(err)
+	}
+	waitBudget(t, func() bool { s := h.r.Snapshot(); return s.Home.Bytes == uint64(len("response")) })
+	if err := client.(*net.TCPConn).CloseWrite(); err != nil {
+		t.Fatal(err)
+	}
+	upstream.SetReadDeadline(time.Now().Add(5 * time.Second))
+	if _, err := upstream.Read(make([]byte, 1)); err != io.EOF { // relay forwarded the client's FIN
+		t.Fatalf("expected forwarded half-close, got %v", err)
+	}
+	upstream.SetReadDeadline(time.Time{})
+	return client, upstream
+}
+
+func TestTLSUpstreamResetAfterClientFinishedDoesNotPoisonPath(t *testing.T) {
+	h := newTLSPathHarness(t, 5*time.Second)
+	_, upstream := h.answered(t)
+	resetConn(upstream) // RST instead of FIN while the relay still reads upstream
+	requirePathHealthy(t, h.settle(t))
+}
+
+// failingCloseWriteConn makes the relay's half-close of the upstream fail as a
+// reset socket does (Windows WSAECONNRESET, Unix ENOTCONN).
+type failingCloseWriteConn struct{ net.Conn }
+
+func (failingCloseWriteConn) CloseWrite() error {
+	return &net.OpError{Op: "shutdown", Net: "tcp", Err: syscall.ECONNRESET}
+}
+
+func TestTLSUpstreamHalfCloseResetAfterResponseDoesNotPoisonPath(t *testing.T) {
+	h := newTLSPathHarness(t, 5*time.Second)
+	h.wrap = func(c net.Conn) net.Conn { return failingCloseWriteConn{c} }
+	client, upstream := h.open(t)
+	if _, err := upstream.Write([]byte("response")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadFull(client, make([]byte, len("response"))); err != nil {
+		t.Fatal(err)
+	}
+	client.(*net.TCPConn).CloseWrite() // relay's half-close of the upstream now fails
+	requirePathHealthy(t, h.settle(t))
+}
+
+// The exemption is only for a finished client. A reset while the client is still
+// connected is the uplink failing, even after downstream bytes.
+func TestTLSUpstreamResetMidSessionStillCoolsDownPath(t *testing.T) {
+	h := newTLSPathHarness(t, 5*time.Second)
+	client, upstream := h.open(t)
+	if _, err := upstream.Write([]byte("response")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadFull(client, make([]byte, len("response"))); err != nil {
+		t.Fatal(err)
+	}
+	resetConn(upstream)
+	requirePathCooled(t, h.settle(t))
 }

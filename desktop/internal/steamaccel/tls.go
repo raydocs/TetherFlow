@@ -384,13 +384,23 @@ type tlsPipe struct {
 	ctx   context.Context
 	first tlsFirstCause
 	down  atomic.Uint64
+	// clientDone: the client's read side ended (FIN, close_notify then close, or
+	// reset). It is set before any error that the client's departure provokes.
+	clientDone atomic.Bool
 }
 
 // fail records a cause; once the session context is done every later error is a
-// consequence of cancellation, never the path's fault.
+// consequence of cancellation, never the path's fault. An upstream error after the
+// client has finished and been served is teardown, not a path failure: the client
+// forwards its close_notify to an upstream that already closed, and the peer's RST
+// replaces the pending FIN (always on Windows), failing the upstream read, write or
+// half-close. A reset while the client is still connected, or before any byte
+// reached it, is still the uplink's fault.
 func (p *tlsPipe) fail(c tlsCause) {
 	if p.ctx.Err() != nil {
 		c = causeCancelled
+	} else if c == causeUpstream && p.clientDone.Load() && p.down.Load() > 0 {
+		c = causeClean
 	}
 	p.first.set(c)
 }
@@ -416,6 +426,9 @@ func (c activeTLSConn) Read(p []byte) (int, error) {
 	n, err := c.Conn.Read(p)
 	if n > 0 {
 		c.activity.touch(c.client)
+	}
+	if err != nil && c.client {
+		c.pipe.clientDone.Store(true)
 	}
 	if err == io.EOF {
 		if !c.client && n == 0 && c.pipe.down.Load() == 0 {
