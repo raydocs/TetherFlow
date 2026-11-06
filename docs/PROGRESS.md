@@ -81,3 +81,6 @@ steamaccel race三轮通过（54.983秒）、Windowsvet通过；跨语言10轮�
 
 ## EOF调查与新Windows失败
 Sonnet未修改生产代码：高负载下复现origin自身ENOBUFS/EPIPE及EOF关联，不能证明旧审查失败同因；主线程给origin.Write增加错误/短写断言（不忽略失败/不跳过），低并发跨语言10轮进行中。恢复门槛全库+cmd回归已通过。新CI42207422505失败于TestTLSHomeDNSFailureUsesPhone：已收927字节但Phone.Errors1，E2E尚未执行；专项Sonnet调查Windows健康误分类（steam-windows-health-failure-20261106），不得削弱断言。R1审查仍block，R2待此与E2E结果。
+
+## Windows健康修复集成验证中
+已集成48b3731：客户端已FIN/结束且有下行字节后上游错误按teardown分类，新增真实RST/脚本CloseWrite回归旧码失败；这是不透明TLS启发式，可能掩盖客户端半关闭后真实上游reset健康事件，不等于证明响应完整。原Windows失败未本地复现，主线程race三轮/Windowsvet运行中，CI必须验证。低并发新增origin.Write错误断言的跨语言10轮全部通过，无忽略失败；旧审查EOF历史根因仍未被证明，只记录极端负载ENOBUFS证据。

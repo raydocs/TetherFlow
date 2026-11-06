@@ -389,13 +389,11 @@ type tlsPipe struct {
 	clientDone atomic.Bool
 }
 
-// fail records a cause; once the session context is done every later error is a
-// consequence of cancellation, never the path's fault. An upstream error after the
-// client has finished and been served is teardown, not a path failure: the client
-// forwards its close_notify to an upstream that already closed, and the peer's RST
-// replaces the pending FIN (always on Windows), failing the upstream read, write or
-// half-close. A reset while the client is still connected, or before any byte
-// reached it, is still the uplink's fault.
+// fail records a first cause. Cancellation-related errors do not poison health.
+// After a client FIN/reset and some downstream bytes, later upstream errors are
+// treated as teardown. This is a heuristic: opaque TLS does not reveal whether
+// the whole application response arrived, so a real reset in that state is not
+// counted as a path failure. Resets before bytes or before client completion are.
 func (p *tlsPipe) fail(c tlsCause) {
 	if p.ctx.Err() != nil {
 		c = causeCancelled
