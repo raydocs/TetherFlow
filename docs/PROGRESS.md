@@ -60,3 +60,6 @@ R7主线程steamaccel race三轮/Windowsvet及跨语言3轮通过；R13主线程
 
 ## R9主线程验证完成
 steamaccel race三轮通过（54.983秒）、Windowsvet通过；跨语言10轮在debug与优化Swift fixture两种编译、直连与原生USBmux两个模式均通过，原始日志/tmp/tetherflow-r9-integration.log，无忽略失败。R11仍待自动完成通知后再集成；不重复轮询代理、不启动重叠main.go写入任务。
+
+## R11集成验证中、R12启动
+已检查并集成3725500：CLI/launcher三模式、历史累计与同窗口并发分离、mode报告文件、原子写。主线程cmd race三轮/Windowsvet进行中。active统计采用任一路>1Mbps窗口，低于阈值字节不计sustained，必须明确不等于全程平均。R12分阶段doctor/可选择serial/协议2与蜂窝CONNECT预检交Sonnet独立worktree；补准许token.go最小类型化407分类，禁止凭错误文本推断。
