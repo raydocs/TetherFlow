@@ -36,8 +36,14 @@ public final class ProxyServer {
     private let egress: EgressPolicy
     private let event: (ProxyEvent) -> Void
     private var listener: NWListener?
+    /// A cancelled listener whose `.cancelled` state has not arrived yet; `.stopped` waits for it.
+    private var stoppingListener: NWListener?
+    private var stopWatchdog: DispatchWorkItem?
+    private var restartAfterStop = false
     private var sessions: [UUID: ProxySession] = [:]
     public static let maximumSessions = 32
+    /// Upper bound on waiting for the listener's `.cancelled` before `.stopped` is reported anyway.
+    static let stopWatchdogSeconds: Double = 2
 
     public convenience init(token: String, port: UInt16 = ProxyServer.defaultPort,
                             event: @escaping (ProxyEvent) -> Void) throws {
@@ -55,73 +61,102 @@ public final class ProxyServer {
     }
 
     public func start() {
-        queue.async { [self] in
-            guard listener == nil else { return }
-            do {
-                let parameters = NWParameters.tcp
-                // Never wildcard-bind or advertise Bonjour. usbmux/iproxy reaches device loopback.
-                parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1",
-                                                             port: NWEndpoint.Port(rawValue: port)!)
-                let newListener = try NWListener(using: parameters)
-                listener = newListener
-                newListener.stateUpdateHandler = { [weak self, weak newListener] state in
-                    guard let self, let newListener, self.listener === newListener else { return }
-                    switch state {
-                    case .ready:
-                        guard let boundPort = newListener.port else { self.stopOnQueue(); return }
-                        self.event(.listening(boundPort.rawValue))
-                    case .failed(let error):
-                        self.event(.log("Listener failed: \(error)"))
-                        self.stopOnQueue()
-                    default: break
-                    }
+        queue.async { [self] in startOnQueue() }
+    }
+
+    private func startOnQueue() {
+        // Restart is serialized: a start requested while a stop is draining waits for `.stopped`.
+        if stoppingListener != nil { restartAfterStop = true; return }
+        guard listener == nil else { return }
+        do {
+            let parameters = NWParameters.tcp
+            // Never wildcard-bind or advertise Bonjour. usbmux/iproxy reaches device loopback.
+            parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1",
+                                                         port: NWEndpoint.Port(rawValue: port)!)
+            let newListener = try NWListener(using: parameters)
+            listener = newListener
+            newListener.stateUpdateHandler = { [weak self, weak newListener] state in
+                guard let self, let newListener else { return }
+                if self.stoppingListener === newListener {
+                    if case .cancelled = state { self.finishStop() }
+                    return
                 }
-                let callbackQueue = queue
-                newListener.newConnectionHandler = { [weak self, weak newListener] connection in
-                    guard let self, let newListener, self.listener === newListener,
-                          self.sessions.count < Self.maximumSessions else {
-                        // Even rejected setup-state connections need a queue to deliver cancellation.
-                        connection.start(queue: callbackQueue)
-                        connection.cancel()
-                        return
-                    }
-                    let id = UUID()
-                    let session = ProxySession(client: connection, token: self.token, queue: self.queue,
-                                               egress: self.egress) { [weak self] message in
-                        self?.sessions.removeValue(forKey: id)
-                        self?.event(.log(message))
-                    }
-                    self.sessions[id] = session
-                    session.start()
-                    self.event(.log("Session opened (active=\(self.sessions.count))"))
+                guard self.listener === newListener else { return }
+                switch state {
+                case .ready:
+                    guard let boundPort = newListener.port else { self.stopOnQueue(); return }
+                    self.event(.listening(boundPort.rawValue))
+                case .failed(let error):
+                    self.event(.log("Listener failed: \(error)"))
+                    self.stopOnQueue()
+                default: break
                 }
-                newListener.start(queue: queue)
-            } catch {
-                event(.log("Listener creation failed: \(error)"))
-                event(.stopped)
             }
+            let callbackQueue = queue
+            newListener.newConnectionHandler = { [weak self, weak newListener] connection in
+                guard let self, let newListener, self.listener === newListener,
+                      self.sessions.count < Self.maximumSessions else {
+                    // Even rejected setup-state connections need a queue to deliver cancellation.
+                    connection.start(queue: callbackQueue)
+                    connection.cancel()
+                    return
+                }
+                let id = UUID()
+                let session = ProxySession(client: connection, token: self.token, queue: self.queue,
+                                           egress: self.egress) { [weak self] message in
+                    self?.sessions.removeValue(forKey: id)
+                    self?.event(.log(message))
+                }
+                self.sessions[id] = session
+                session.start()
+                self.event(.log("Session opened (active=\(self.sessions.count))"))
+            }
+            newListener.start(queue: queue)
+        } catch {
+            event(.log("Listener creation failed: \(error)"))
+            event(.stopped)
         }
     }
 
     public func stop() { queue.async { [self] in stopOnQueue() } }
 
     private func stopOnQueue() {
-        listener?.stateUpdateHandler = nil
-        // Keep the reject handler until cancellation: queued accepts must still be closed.
-        listener?.cancel()
-        listener = nil
         let active = Array(sessions.values)
-        active.forEach { $0.cancel(reason: "server stopped") }
         sessions.removeAll()
+        active.forEach { $0.cancel(reason: "server stopped") }
+        guard let closing = listener else {
+            // Never started, creation failed, or a stop is already draining: report once, never twice.
+            if stoppingListener == nil { event(.stopped) }
+            return
+        }
+        listener = nil
+        stoppingListener = closing
+        // The state handler stays installed: `.stopped` is reported only after `.cancelled`, i.e.
+        // once the port is released. The new-connection handler also stays, so queued accepts close.
+        closing.cancel()
+        let watchdog = DispatchWorkItem { [weak self] in self?.finishStop() }
+        stopWatchdog = watchdog
+        queue.asyncAfter(deadline: .now() + Self.stopWatchdogSeconds, execute: watchdog)
+    }
+
+    private func finishStop() {
+        guard let closed = stoppingListener else { return }
+        stopWatchdog?.cancel()
+        stopWatchdog = nil
+        closed.stateUpdateHandler = nil
+        stoppingListener = nil
         event(.stopped)
+        if restartAfterStop {
+            restartAfterStop = false
+            startOnQueue()
+        }
     }
 
     deinit {
-        let lastListener = listener
+        let lastListeners = [listener, stoppingListener]
         let active = Array(sessions.values)
         queue.async {
-            lastListener?.stateUpdateHandler = nil
-            lastListener?.cancel()
+            lastListeners.forEach { $0?.stateUpdateHandler = nil; $0?.cancel() }
             active.forEach { $0.dispose() }
         }
     }

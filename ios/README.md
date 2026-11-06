@@ -52,7 +52,8 @@ below remain an optional standalone diagnostic path, especially on macOS.
 3. Open the signed phone app, enable cellular data for it, keep it active/unlocked,
    tap **Start**, and securely transfer the displayed session token to the host.
    Do not paste secrets into chat or public logs. Copy is device-local and expires
-   after two minutes; the token itself remains valid until Stop/foreground loss.
+   after two minutes; the token itself stays valid until Stop, **Rotate**, or a
+   pause longer than 10 minutes (see the token lifetime below).
 4. With current libusbmuxd syntax, explicitly use USB and host loopback:
 
    ```sh
@@ -132,8 +133,11 @@ app does not install/configure Windows interception or Steam lancache DNS.
 
 - Listener binds IPv4 loopback only via `requiredLocalEndpoint`; no wildcard,
   Bonjour or unauthenticated Wi-Fi proxy. The host `iproxy` must also remain local.
-- 32 bytes from `SecRandomCopyBytes`, encoded as 64 hex characters, form a fresh
-  in-memory token on **each** Start. No persistence or token/payload logging.
+- 20 bytes from `SecRandomCopyBytes`, encoded as 32 lowercase Crockford base32
+  characters (160 bits, no `i l o u`), form a fresh in-memory token on Start and on
+  **Rotate**. The screen shows it in groups of four; the desktop ignores spaces and
+  hyphens, so it can be typed by hand. Copy places the ungrouped text on the pasteboard.
+  No persistence (no Keychain, UserDefaults or file) and no token/payload logging.
   All routes require exact Bearer authentication. Local/pairing trust is still
   required: this is not a hardened multi-user service or an encrypted USB protocol.
 - Outbound `NWConnection` uses `requiredInterfaceType = .cellular` and disabled
@@ -168,10 +172,23 @@ app does not install/configure Windows interception or Steam lancache DNS.
   connection: 15 s; active transfer inactivity: 30 s; diagnostic total: 60 s;
   error-response close: 5 s. A continuously progressing CONNECT has no total
   lifetime cap. Timeouts are checked once a second on the serial queue.
-- Stop/scene **inactive or background**, including lock or control-center
-  transitions, cancels listener, sessions, receives, sends, and timers. No automatic
-  restart; tap Start again and use the new token. Auto-lock is disabled only while
-  running, restored on stop. There is no background mode or keepalive workaround.
+- Token lifetime (`TokenSession`, a pure state machine with an injected clock):
+  scene **inactive or background**, including lock or control-center transitions,
+  closes the listener, every session, receive, send and timer, and **pauses** the
+  token (status "Paused, will resume"). The token stays in RAM for at most 10 minutes
+  of a monotonic clock, `clock_gettime(CLOCK_MONOTONIC)`, which the Darwin SDK
+  documents as counting while the device sleeps (`DispatchTime.uptimeNanoseconds`
+  does not and is not used for this). Returning to **active** inside the window
+  restarts the listener on the **same token**, without retyping it. When the
+  window has passed, Stop is tapped, or Rotate is tapped, the token is destroyed and
+  a Start or Rotate issues a new one; the old one is rejected with 407. A timer wipes
+  an expired token while the app is scheduled, and a suspended process enforces
+  the window on the next scene event. This is foreground only: there is no
+  background mode, no keepalive and no traffic while the app is not active. Auto-lock
+  is disabled only while running, restored otherwise. Swift strings cannot be zeroed,
+  so "wipe" drops the reference. The loopback listener is released (`.cancelled`)
+  before `.stopped` is reported, and a restart waits for it, so resume does not
+  hit `EADDRINUSE`.
 - Session logs report payload counters/duration/reason, not achieved bandwidth.
   The screen retains the last 100 log lines only. It does not export analytics.
 

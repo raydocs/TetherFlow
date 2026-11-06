@@ -61,6 +61,21 @@ private func readUntilEOF(_ fd: Int32) throws -> Data {
     }
 }
 
+private final class Locked {
+    private let lock = NSCondition()
+    private var marks: [String] = []
+    func mark(_ name: String) { lock.lock(); marks.append(name); lock.broadcast(); lock.unlock() }
+    func count(_ name: String) -> Int { lock.lock(); defer { lock.unlock() }; return marks.filter { $0 == name }.count }
+    func wait(forAny names: [String], timeout: TimeInterval) -> String? {
+        let deadline = Date().addingTimeInterval(timeout)
+        lock.lock(); defer { lock.unlock() }
+        while true {
+            if let hit = marks.first(where: names.contains) { return hit }
+            if !lock.wait(until: deadline) { return nil }
+        }
+    }
+}
+
 final class TransportTests: XCTestCase {
     let token = String(repeating: "c", count: 64)
     private var servers: [ProxyServer] = []
@@ -87,6 +102,105 @@ final class TransportTests: XCTestCase {
 
     private func request(_ target: String, method: String = "GET", authenticated: Bool = true) -> Data {
         Data("\(method) \(target) HTTP/1.1\r\nHost: localhost\r\n\(authenticated ? "Proxy-Authorization: Bearer \(token)\r\n" : "")\r\n".utf8)
+    }
+
+    /// R8: `.stopped` must mean the listener is fully released, so an immediate restart on the same
+    /// fixed port never hits EADDRINUSE. Scratch probe before the fix: 16/50 rebinds failed.
+    func testImmediateRestartSamePortAfterStopped() throws {
+        var port: UInt16 = 0
+        do { // find a free port once, then reuse exactly that port for every cycle
+            let (probe, bound) = try start()
+            port = bound
+            let released = expectation(description: "probe port released")
+            probe.stop()
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { released.fulfill() }
+            wait(for: [released], timeout: 2)
+        }
+        var failures: [String] = []
+        for cycle in 0..<50 {
+            let state = Locked()
+            let server = try ProxyServer(token: token, port: port, egress: .cellular) { event in
+                switch event {
+                case .listening: state.mark("listening")
+                case .stopped: state.mark("stopped")
+                case .log(let message): if message.hasPrefix("Listener") { state.mark("failed") }
+                }
+            }
+            server.start()
+            let bound = state.wait(forAny: ["listening", "failed"], timeout: 5)
+            if bound != "listening" { failures.append("cycle \(cycle): \(bound ?? "timeout")") }
+            // A client mid-request when the user stops, as in the app.
+            if bound == "listening", let fd = try? openSocket(port: port) {
+                try? writeAll(fd, Data("GET /diag".utf8))
+                server.stop()
+                Darwin.close(fd)
+            } else {
+                server.stop()
+            }
+            if state.wait(forAny: ["stopped"], timeout: 5) == nil { failures.append("cycle \(cycle): no .stopped") }
+        }
+        XCTAssertEqual(failures, [], "same-port restart failed \(failures.count)/50 cycles")
+    }
+
+    /// R8 wire check: after a rotate the old token gets 407 and the new one is served on the same port.
+    func testOldTokenRejectedOnWireAfterRotate() throws {
+        var counter = 0
+        var session = TokenSession(generate: { counter += 1; return TokenFormat.generate(bytes: [UInt8](repeating: UInt8(counter), count: 20)) },
+                                   now: { 1 })
+        guard case .startServer(let first) = session.handle(.userStart) else { return XCTFail("no token") }
+        let state = Locked()
+        var port: UInt16 = 0
+        let one = try ProxyServer(token: first, port: 0, egress: .cellular) { event in
+            if case .listening(let bound) = event { port = bound; state.mark("listening") }
+            if case .stopped = event { state.mark("stopped") }
+        }
+        servers.append(one)
+        one.start()
+        XCTAssertEqual(state.wait(forAny: ["listening"], timeout: 5), "listening")
+        func status(_ token: String) throws -> String {
+            let fd = try openSocket(port: port)
+            defer { Darwin.close(fd) }
+            try writeAll(fd, Data("GET /diagnostic/info HTTP/1.1\r\nHost: localhost\r\nProxy-Authorization: Bearer \(token)\r\n\r\n".utf8))
+            return String(try readHeader(fd).prefix(12))
+        }
+        XCTAssertEqual(try status(first), "HTTP/1.1 200")
+
+        guard case .startServer(let second) = session.handle(.userRotate) else { return XCTFail("no rotate") }
+        XCTAssertNotEqual(first, second)
+        one.stop()  // the app stops, waits for `.stopped`, then starts the replacement on the same port
+        XCTAssertEqual(state.wait(forAny: ["stopped"], timeout: 5), "stopped")
+        let state2 = Locked()
+        let two = try ProxyServer(token: second, port: port, egress: .cellular) { event in
+            if case .listening = event { state2.mark("listening") }
+        }
+        servers.append(two)
+        two.start()
+        XCTAssertEqual(state2.wait(forAny: ["listening"], timeout: 5), "listening")
+        XCTAssertEqual(try status(first), "HTTP/1.1 407", "the rotated-out token must be rejected")
+        XCTAssertEqual(try status(second), "HTTP/1.1 200")
+    }
+
+    /// `.stopped` is reported once per stop, and a start requested mid-stop waits for it (serialized).
+    func testStopReportedOnceAndStartDuringStopIsSerialized() throws {
+        let state = Locked()
+        let server = try ProxyServer(token: token, port: 0, egress: .cellular) { event in
+            switch event {
+            case .listening: state.mark("listening")
+            case .stopped: state.mark("stopped")
+            case .log: break
+            }
+        }
+        servers.append(server)
+        server.start()
+        XCTAssertEqual(state.wait(forAny: ["listening"], timeout: 5), "listening")
+        server.stop()
+        server.stop()
+        server.start()  // arrives while the first stop may still be draining
+        XCTAssertEqual(state.wait(forAny: ["stopped"], timeout: 5), "stopped")
+        let deadline = Date().addingTimeInterval(5)
+        while state.count("listening") < 2, Date() < deadline { Thread.sleep(forTimeInterval: 0.01) }
+        XCTAssertEqual(state.count("listening"), 2, "the queued start ran after the stop completed")
+        XCTAssertEqual(state.count("stopped"), 1, "two stop() calls report .stopped once")
     }
 
     func testDiagnosticActualTCPExactBytesAndEOF() throws {
