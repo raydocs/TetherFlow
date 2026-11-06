@@ -36,3 +36,6 @@ Opus计划docs/STEAM-RELIABILITY-PLAN.md已集成；新分支wip/steam-reliabili
 
 ## R5 集成验证中、R6启动
 已检查R5恢复日志脱敏/重试预算/端口持有证明并集成；主线程cmd race三轮及Windows vet正在执行。Windows强杀/ACL/锁重试尚未实际验证，必须CI。R6单路对照模式和HTTP实时字节交Sonnet独立worktree（steam-sonnet-r6-20261106）；与R8手机会话不重叠；R7需等R6以避免acquire冲突。
+
+## R6 集成验证中、R7启动
+已审查并集成78246b3，显式三种出口模式、HTTP每次下行write累计、TLS不重复计数。主线程race三轮/Windows vet/跨语言3轮执行中；CLI接线在R11，当前不能说用户已能切换。R7认证过期隔离与generation安全刷新交Sonnet独立worktree（steam-sonnet-r7-20261106），R8仍独立进行。工作者报告旧版desktop根包proxy_darwin.go缺fmt导入，非本次范围，暂不修改，交付不能宣称全仓build通过。
