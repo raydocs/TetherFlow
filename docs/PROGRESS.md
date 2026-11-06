@@ -30,3 +30,6 @@ Opus计划docs/STEAM-RELIABILITY-PLAN.md已集成；新分支wip/steam-reliabili
 
 ## R2 集成验证中
 已核对日志格式/大小界限与五种恢复状态并集成3997e13，原hosts_test未改。主线程race三轮与Windows vet正在运行；Windows DACL/强制文件锁尚需CI实际执行，不计为已通过。R5 guardian临时锁重试/恢复日志/崩溃清理接线交Sonnet独立worktree，steam-sonnet-r5-20261106。R4仍独立进行，不轮询。
+
+## R4 集成验证中
+已审查并集成3daf1f2：实际peer公网校验、字面私网预拒绝、协议2 info、共享IP向量。PublicAddress保留于HTTPProtocol.swift以兼容显式host编译文件列表（布局偏差，不改功能）。工作者只记录info/legacy禁用后失败，未证明peer/private两个测试在旧码失败，不能外推。主线程Swift全套/Go向量/跨语言3轮已启动；R8手机RAM token暂停恢复与listener重启交Sonnet独立worktree。R5仍在进行，未轮询。
