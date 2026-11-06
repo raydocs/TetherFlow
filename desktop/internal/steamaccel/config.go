@@ -12,6 +12,31 @@ import (
 	"time"
 )
 
+// UplinkMode selects which uplinks the relay may schedule. The zero value is
+// UplinkDual, so existing callers keep both paths.
+type UplinkMode int
+
+const (
+	UplinkDual      UplinkMode = iota // home and phone, with failover between them
+	UplinkHomeOnly                    // home only: no phone token, socket, dial or CONNECT
+	UplinkPhoneOnly                   // phone only: never home, not even after a phone failure
+)
+
+func (m UplinkMode) String() string {
+	switch m {
+	case UplinkDual:
+		return "dual"
+	case UplinkHomeOnly:
+		return "homeonly"
+	case UplinkPhoneOnly:
+		return "phoneonly"
+	}
+	return fmt.Sprintf("UplinkMode(%d)", int(m))
+}
+
+func (m UplinkMode) usesHome() bool  { return m == UplinkDual || m == UplinkHomeOnly }
+func (m UplinkMode) usesPhone() bool { return m == UplinkDual || m == UplinkPhoneOnly }
+
 type DialContextFunc func(context.Context, string, string) (net.Conn, error)
 type LookupIPFunc func(context.Context, string) ([]net.IP, error)
 
@@ -19,11 +44,13 @@ type LookupIPFunc func(context.Context, string) ([]net.IP, error)
 // See API.md for defaults, DNS override caveats and seam security obligations.
 type Config struct {
 	// MaxPhoneConnections bounds dialing, active and idle phone sockets (default/max 32).
-	MaxPhoneConnections                                                      int
-	HomeIPv4                                                                 string
-	AllowHomePeer                                                            bool
-	PhoneProxyAddr                                                           string
-	PhoneToken                                                               string
+	MaxPhoneConnections int
+	HomeIPv4            string
+	AllowHomePeer       bool
+	PhoneProxyAddr      string
+	PhoneToken          string
+	// Uplinks selects dual (zero value), home-only or phone-only scheduling.
+	Uplinks                                                                  UplinkMode
 	HomeWeight, PhoneWeight                                                  int
 	AllowedHosts                                                             []string
 	MaxConcurrent, MaxHeaderBytes                                            int
@@ -46,7 +73,11 @@ func defaults(c Config) (Config, error) {
 	if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() || !validPort(port) {
 		return c, errors.New("PhoneProxyAddr must be a numeric loopback IP and valid port")
 	}
-	if c.PhoneToken == "" || len(c.PhoneToken) > 4096 || !validBearerToken(c.PhoneToken) {
+	if c.Uplinks < UplinkDual || c.Uplinks > UplinkPhoneOnly {
+		return c, fmt.Errorf("unknown uplink mode %d", int(c.Uplinks))
+	}
+	// Home-only never sends a token, so none is required; one that is supplied must still be well formed.
+	if c.PhoneToken == "" && c.Uplinks.usesPhone() || c.PhoneToken != "" && (len(c.PhoneToken) > 4096 || !validBearerToken(c.PhoneToken)) {
 		return c, errors.New("PhoneToken must be a nonempty printable ASCII bearer token without whitespace (max 4096 bytes)")
 	}
 	if c.HomeWeight == 0 && c.PhoneWeight == 0 {

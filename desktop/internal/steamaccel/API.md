@@ -5,7 +5,8 @@ r, err := steamaccel.New(steamaccel.Config{
     HomeIPv4: "192.168.1.10", // REQUIRED: assigned Wi-Fi IPv4; home sockets bind it
     AllowHomePeer: true,       // permit this exact source IP as well as loopback
     PhoneProxyAddr: "127.0.0.1:8283", // default
-    PhoneToken: token,         // REQUIRED; sent only to local phone CONNECT proxy
+    PhoneToken: token,         // REQUIRED unless Uplinks is UplinkHomeOnly; sent only to local phone CONNECT proxy
+    Uplinks: steamaccel.UplinkDual, // zero value; or UplinkHomeOnly / UplinkPhoneOnly
     HomeWeight: 1, PhoneWeight: 4, // zero/zero selects these defaults
 })
 if err != nil { /* handle */ }
@@ -13,20 +14,34 @@ defer r.Close()
 s := r.Server("192.168.1.10:80") // bounded HTTP server; call ListenAndServe yourself
 // Optional opaque TLS ingress: caller binds exact HomeIPv4:443, then r.ServeTLS(listener).
 // r also implements http.Handler (GET/HEAD only).
-// r.Snapshot() returns Status{Home, Phone PathStatus}.
+// r.Snapshot() returns Status{Home, Phone PathStatus; Mode UplinkMode}.
 ```
 
 Stable public surface: `New(Config) (*Relay, error)`, `(*Relay).ServeHTTP`,
 `(*Relay).Server(addr string) *http.Server`, `(*Relay).ServeTLS(net.Listener) error`,
 `(*Relay).Snapshot() Status`,
 `(*Relay).Close() error`. `PathStatus` exposes `Requests`, `Active`, `Bytes`,
-`Errors` (uint64), `CooldownUntil` (time.Time); `Status` exposes `Home`, `Phone`.
-For HTTP, Bytes mean successfully written downstream response-body bytes.
-For opaque TLS, Bytes mean encrypted downstream wire bytes.
+`Errors` (uint64), `CooldownUntil` (time.Time); `Status` exposes `Home`, `Phone`
+and `Mode` (the configured `UplinkMode`).
+For HTTP, Bytes mean downstream response-body bytes, added as each write to the
+client completes (not when the response finishes), so a running transfer is visible
+in `Snapshot`. A partial write counts the bytes it wrote. For opaque TLS, Bytes mean
+encrypted downstream wire bytes, also added per write. Finishing a request adds no
+bytes, so nothing is counted twice.
 Requests count outbound attempts. A canceled inbound request does not count as a
 path error. Weights are weighted least-outstanding, not bandwidth bonding.
 
-Config (all optional except HomeIPv4 and PhoneToken):
+Config (all optional except HomeIPv4, and PhoneToken unless `Uplinks` is `UplinkHomeOnly`):
+- `Uplinks UplinkMode`: `UplinkDual` (zero value, both paths with failover),
+  `UplinkHomeOnly` or `UplinkPhoneOnly` (`String()` gives `dual`, `homeonly`,
+  `phoneonly`). Any other value is rejected by `New`. `acquire` never selects a
+  disabled path, so a single-path mode has no failover and no same-path retry:
+  a failure answers 502 (or 503 while the only path cools down) / closes the TLS
+  session. `UplinkHomeOnly` needs no `PhoneToken` (one that is supplied must still
+  be well formed), builds no phone transport and never dials, reserves a socket
+  for, or sends CONNECT to the phone. `UplinkPhoneOnly` never uses the home
+  transport or dialer, even when the phone fails or is cooling down, and still
+  requires `HomeIPv4` (the ingress peer and bind address).
 - `HomeIPv4 string`; `AllowHomePeer bool` only adds that exact address to allowed peers.
 - `PhoneProxyAddr string` (numeric loopback IP:port only; default 127.0.0.1:8283), `PhoneToken string`.
 - `HomeWeight, PhoneWeight int`; each must be positive, except both zero use 1:4.

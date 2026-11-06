@@ -17,7 +17,10 @@ type PathStatus struct {
 	CooldownUntil                   time.Time
 }
 
-type Status struct{ Home, Phone PathStatus }
+type Status struct {
+	Home, Phone PathStatus
+	Mode        UplinkMode
+}
 
 type path struct {
 	weight    int
@@ -66,12 +69,18 @@ func New(config Config) (*Relay, error) {
 	}
 	r.homeDial, r.phoneDial = homeDial, phoneDial
 	r.tlsServers = make(map[*tlsIngress]struct{})
-	home := c.HomeTransport
-	if home == nil {
-		home = r.transport(r.originDial(homeDial, false))
+	// A disabled path gets no transport, so nothing can dial or reach it.
+	var home, phone http.RoundTripper
+	if c.Uplinks.usesHome() {
+		home = c.HomeTransport
+		if home == nil {
+			home = r.transport(r.originDial(homeDial, false))
+		}
 	}
-	phone := c.PhoneTransport
-	if phone == nil {
+	if c.Uplinks.usesPhone() {
+		phone = c.PhoneTransport
+	}
+	if c.Uplinks.usesPhone() && phone == nil {
 		t := r.transport(r.originDial(phoneDial, true))
 		t.MaxIdleConns = c.MaxPhoneConnections
 		t.MaxIdleConnsPerHost = c.MaxPhoneConnections
@@ -93,7 +102,7 @@ func (r *Relay) Server(addr string) *http.Server {
 func (r *Relay) Snapshot() Status {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return Status{Home: r.paths[0].status, Phone: r.paths[1].status}
+	return Status{Home: r.paths[0].status, Phone: r.paths[1].status, Mode: r.cfg.Uplinks}
 }
 
 func (r *Relay) Close() error {
@@ -108,6 +117,14 @@ func (r *Relay) Close() error {
 	return nil
 }
 
+func (r *Relay) pathEnabled(i int) bool {
+	if i == 0 {
+		return r.cfg.Uplinks.usesHome()
+	}
+	return r.cfg.Uplinks.usesPhone()
+}
+
+// acquire never selects a disabled path, so single-path modes have no failover.
 func (r *Relay) acquire(exclude int) int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -115,7 +132,7 @@ func (r *Relay) acquire(exclude int) int {
 	now := time.Now()
 	for i := range r.paths {
 		p := &r.paths[i]
-		if i == exclude || now.Before(p.status.CooldownUntil) {
+		if i == exclude || !r.pathEnabled(i) || now.Before(p.status.CooldownUntil) {
 			continue
 		}
 		if chosen < 0 {
@@ -136,12 +153,19 @@ func (r *Relay) acquire(exclude int) int {
 	return chosen
 }
 
-func (r *Relay) finish(i int, failed bool, bytes uint64) {
+// addBytes counts downstream bytes as each write completes, so Status shows a
+// transfer while it is running. finish adds no bytes: that would double count.
+func (r *Relay) addBytes(i int, n uint64) {
+	r.mu.Lock()
+	r.paths[i].status.Bytes += n
+	r.mu.Unlock()
+}
+
+func (r *Relay) finish(i int, failed bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	p := &r.paths[i]
 	p.status.Active--
-	p.status.Bytes += bytes
 	if failed {
 		p.status.Errors++
 		p.status.CooldownUntil = time.Now().Add(r.cfg.FailureCooldown)
@@ -258,7 +282,7 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 			attemptCancel()
 			localCapacity := errors.Is(roundErr, errDialBusy) || errors.Is(roundErr, errPhoneCapacity)
-			r.finish(i, req.Context().Err() == nil && r.ctx.Err() == nil && !localCapacity, 0)
+			r.finish(i, req.Context().Err() == nil && r.ctx.Err() == nil && !localCapacity)
 			if errors.Is(roundErr, errDialBusy) {
 				http.Error(w, "relay dial capacity exhausted", http.StatusServiceUnavailable)
 				return
@@ -268,7 +292,8 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			previous = i
-			if attempt == 0 {
+			// Single-path modes have no other uplink to retry on.
+			if attempt == 0 && r.cfg.Uplinks == UplinkDual {
 				continue
 			}
 			if localCapacity {
@@ -300,6 +325,8 @@ func (r *Relay) contextError(w http.ResponseWriter, req *http.Request, ctx conte
 // Each write gets its own deadline, so a stalled client fails the write without
 // being mistaken for a stalled origin. ErrNotSupported just means no deadline.
 type downstream struct {
+	relay   *Relay
+	path    int
 	w       io.Writer
 	rc      *http.ResponseController
 	timeout time.Duration
@@ -314,6 +341,9 @@ func (d *downstream) Write(p []byte) (int, error) {
 		}
 	}
 	n, err := d.w.Write(p)
+	if n > 0 {
+		d.relay.addBytes(d.path, uint64(n))
+	}
 	if err != nil {
 		d.err = err
 	} else if n != len(p) {
@@ -372,23 +402,22 @@ func (r *Relay) writeResponse(w http.ResponseWriter, req *http.Request, resp *ht
 	for k, vs := range cleanHeaders(resp.Header) {
 		w.Header()[k] = vs
 	}
-	d := &downstream{w: w, rc: http.NewResponseController(w), timeout: r.cfg.IdleTimeout}
+	d := &downstream{relay: r, path: i, w: w, rc: http.NewResponseController(w), timeout: r.cfg.IdleTimeout}
 	if err := d.rc.SetWriteDeadline(time.Now().Add(r.cfg.IdleTimeout)); err != nil && !errors.Is(err, http.ErrNotSupported) {
 		d.rc = nil
 	}
 	w.WriteHeader(resp.StatusCode)
-	var n int64
 	var err error
 	var body *idleReader
 	if req.Method != http.MethodHead && resp.Body != nil {
 		body = newIdleReader(resp.Body, r.cfg.IdleTimeout, attemptCancel)
 		defer body.timer.Stop()
 		// Exactly one fixed-size buffer per admitted stream; no download buffering.
-		n, err = io.CopyBuffer(d, struct{ io.Reader }{body}, make([]byte, 32<<10))
+		_, err = io.CopyBuffer(d, struct{ io.Reader }{body}, make([]byte, 32<<10))
 	}
 	// First cause wins: a client-side failure or cancellation is never the path's.
 	failed := err != nil && d.err == nil && req.Context().Err() == nil && r.ctx.Err() == nil
-	r.finish(i, failed, uint64(n))
+	r.finish(i, failed)
 	if err != nil {
 		// Do not let net/http terminate a truncated chunked body as if it were complete.
 		// The response is already committed; this intentionally prevents failover/replay.

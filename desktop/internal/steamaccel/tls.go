@@ -243,14 +243,14 @@ func (r *Relay) serveTLS(parent context.Context, client net.Conn) {
 				outcome := r.pipeTLS(ctx, client, upstream, i)
 				stopUp()
 				upstream.Close()
-				r.finish(i, outcome.pathFailure(), 0)
+				r.finish(i, outcome.pathFailure())
 				return
 			}
 			stopUp()
 			upstream.Close()
 		}
 		localCapacity := errors.Is(err, errDialBusy) || errors.Is(err, errPhoneCapacity)
-		r.finish(i, ctx.Err() == nil && !localCapacity, 0)
+		r.finish(i, ctx.Err() == nil && !localCapacity)
 		if sent != 0 || errors.Is(err, errDialBusy) {
 			return
 		}
@@ -442,9 +442,7 @@ func (w countedTLSWriter) Write(p []byte) (int, error) {
 	n, err := w.activeTLSConn.Write(p)
 	if n > 0 {
 		w.pipe.down.Add(uint64(n))
-		w.relay.mu.Lock()
-		w.relay.paths[w.path].status.Bytes += uint64(n)
-		w.relay.mu.Unlock()
+		w.relay.addBytes(w.path, uint64(n))
 	}
 	return n, err
 }
