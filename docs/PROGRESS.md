@@ -15,3 +15,6 @@ Windows Steam 同时利用家庭 Wi-Fi 和 iPhone 蜂窝下载，目标接近手
 Astra审计已完成，确认不仅差真机：同机重连、重新认证、传输健康、DNS、实时测量、诊断和hosts崩溃恢复均有源码缺口。Claude环境重新检测已恢复。已启动claude-opus-5-5/high独立worktree制定安全契约及剩余执行计划（clientRequestId steam-opus-contracts-20261106），仅允许写计划文档，不改源码；完成自动唤醒，不轮询。接收计划后按依赖逐个分派Sonnet有界实现，主线程集成与验证。不得将旧R2批准外推为这些新契约已满足。
 
 禁止修改原有未提交Android HighSpeedProxyEngine.kt。保留现有实验包，不把CI通过宣称成1200Mbps实机达标。
+
+## 计划已集成
+Opus计划docs/STEAM-RELIABILITY-PLAN.md已集成；新分支wip/steam-reliability，CI触发已扩展。开始R1同serial重连，Sonnet独立worktree实施。其余按计划依赖推进，未声称完成。

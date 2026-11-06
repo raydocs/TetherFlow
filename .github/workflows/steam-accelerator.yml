@@ -1,7 +1,7 @@
 name: Steam accelerator verification
 on:
   push:
-    branches: ['wip/steam-ios-dual-download']
+    branches: ['wip/steam-ios-dual-download', 'wip/steam-reliability']
     paths:
       - 'desktop/internal/**'
       - 'desktop/cmd/steam-accelerator/**'
