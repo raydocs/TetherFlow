@@ -93,3 +93,6 @@ Sonnet未修改生产代码：高负载下复现origin自身ENOBUFS/EPIPE及EOF�
 
 ## 当前等待精确CI95cd339
 Python19项主线程通过（16.776s）。源代码测试修正已推送95cd339，CI42209782957进行中，单个背景gh run watch间隔90秒等待终态，日志/tmp/tetherflow-ci-final-95cd339.log。下一步：读取实际失败日志修正或确认WindowsE2E/提取包执行通过，随后冻结启动独立R2（必须新delegate，含R1问题、修复、全部delta、EOF证据与残余风险）。不把未执行阶段当通过。
+
+## CI42209782957终态失败
+已读取原始日志：mac-host通过；Windows前置Go测试/解析doctor通过，七个E2E均在启动前读取真实hosts SDDL失败（Get-Acl模块装载依赖），无应用场景执行，无残留hosts。测试helper改为此前库测试已在Windows验证的.NET GetAccessControl完整SDDL，保留所有ACL/恢复断言并输出错误诊断，不跳过。Windows交叉vet/编译后推新CI；包提取测试仍未执行。

@@ -862,12 +862,12 @@ func e2eKillPID(pid uint32) {
 
 func e2eSDDL(path string) (string, error) {
 	ps := filepath.Join(os.Getenv("SystemRoot"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
-	cmd := exec.Command(ps, "-NoProfile", "-NonInteractive", "-Command", "(Get-Acl -LiteralPath $env:TF_E2E_ACL_PATH).Sddl")
+	cmd := exec.Command(ps, "-NoProfile", "-NonInteractive", "-Command", "[System.IO.File]::GetAccessControl($env:TF_E2E_ACL_PATH).GetSecurityDescriptorSddlForm([System.Security.AccessControl.AccessControlSections]::All)")
 	cmd.Env = append(os.Environ(), "TF_E2E_ACL_PATH="+path)
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
 	s := strings.TrimSpace(string(out))
 	if err != nil || s == "" {
-		return "", fmt.Errorf("read SDDL of %s: %v", path, err)
+		return "", fmt.Errorf("read SDDL of %s: %v: %s", path, err, s)
 	}
 	return s, nil
 }
