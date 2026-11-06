@@ -9,7 +9,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -33,7 +32,6 @@ func main() {
 }
 func run() error {
 	home := flag.String("home-ip", "", "IPv4 assigned to the home Wi-Fi interface (required)")
-	tokenFile := flag.String("phone-token-file", "", "local file containing the iPhone session token; never pass token on command line")
 	phone := flag.String("phone-proxy", "127.0.0.1:8283", "existing local tunnel endpoint; requires --external-tunnel")
 	externalTunnel := flag.Bool("external-tunnel", false, "use existing iproxy/other loopback tunnel instead of built-in Apple USB client")
 	udid := flag.String("device-udid", "", "optional USB device serial/UDID selection when multiple phones are attached")
@@ -79,25 +77,6 @@ func run() error {
 			return err
 		}
 	}
-	if *tokenFile == "" {
-		return errors.New("--phone-token-file is required; copy the token from the foreground iOS app into a private local file")
-	}
-	f, err := os.Open(*tokenFile)
-	if err != nil {
-		return fmt.Errorf("token file: %w", err)
-	}
-	raw, err := io.ReadAll(io.LimitReader(f, 4097))
-	_ = f.Close()
-	if err != nil {
-		return err
-	}
-	if len(raw) > 4096 {
-		return errors.New("token file too large")
-	}
-	token := strings.TrimSpace(string(raw))
-	if len(token) < 32 || len(token) > 128 {
-		return errors.New("invalid iOS session token length")
-	}
 	if !*externalTunnel {
 		scanCtx, scanCancel := context.WithTimeout(context.Background(), 8*time.Second)
 		endpoint, cleanupTunnel, tunnelErr := startPhoneTunnel(scanCtx, *udid)
@@ -108,20 +87,27 @@ func run() error {
 		defer cleanupTunnel()
 		*phone = endpoint
 	}
-	count := 1024
-	if *benchmark {
-		count = 128 * 1024 * 1024
+	// The session token is typed into this process's own hidden stdin prompt; it is probed
+	// with the authenticated diagnostic before anything else is changed.
+	tokens := newTokenSource(os.Stdin, os.Stderr)
+	defer tokens.Close()
+	token, err := acquireStartupToken(tokens.read, func(candidate string) error {
+		return probePhone(context.Background(), *phone, candidate)
+	}, log.Printf)
+	if err != nil {
+		return err
 	}
-	checkCtx, checkCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	rate, checkErr := checkPhone(checkCtx, *phone, token, count)
-	checkCancel()
-	if checkErr != nil {
-		return fmt.Errorf("iPhone USB application-path preflight failed; no settings changed: %w", checkErr)
-	}
 	if *benchmark {
+		checkCtx, checkCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		rate, checkErr := checkPhone(checkCtx, *phone, token, 128*1024*1024)
+		checkCancel()
+		if checkErr != nil {
+			return fmt.Errorf("iPhone USB application-path preflight failed; no settings changed: %w", checkErr)
+		}
 		fmt.Printf("Verified USB app-path payload: %.1f Mbps (not cellular or Steam speed)\n", rate)
 		return nil
 	}
+	tokens.remember(token)
 	log.Print("Authenticated iPhone USB diagnostic passed (not a cellular speed test).")
 	cfg := steamaccel.Config{HomeIPv4: *home, AllowHomePeer: true, PhoneProxyAddr: *phone, PhoneToken: token, HomeWeight: *homeWeight, PhoneWeight: *phoneWeight}
 	if *extraHosts != "" {
@@ -189,7 +175,7 @@ func run() error {
 			// Past this budget the guardian takes over once this process exits.
 			ctx, cancel := context.WithTimeout(context.Background(), mainCleanupBudget)
 			defer cancel()
-			if e := cleanupHosts(ctx, p, session, mainCleanupBudget, flushDNS, *recoveryLog, token); e != nil {
+			if e := cleanupHosts(ctx, p, session, mainCleanupBudget, flushDNS, *recoveryLog, tokens.secrets()...); e != nil {
 				log.Printf("RECOVERY REQUIRED: %v; run --recover-lease %s", e, session)
 			}
 		}
@@ -206,6 +192,20 @@ func run() error {
 	log.Print("Keep iOS app foreground and USB connected. Only local PC peers allowed; no TLS decryption. No requests means Steam is NOT using this relay.")
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if cfg.Uplinks != steamaccel.UplinkHomeOnly {
+		// The only reader of stdin from here on. On shutdown tokens.Close (deferred above)
+		// restores console echo even if this goroutine is still blocked in a read.
+		go (&refresher{
+			status: func() steamaccel.PhoneAuthStatus { return relay.Snapshot().PhoneAuth },
+			read:   tokens.read,
+			probe: func(ctx context.Context, candidate string) error {
+				return probePhone(ctx, *phone, candidate)
+			},
+			set:      relay.SetPhoneToken,
+			remember: tokens.remember,
+			logf:     log.Printf,
+		}).run(ctx)
+	}
 	errorsCh := make(chan error, 2)
 	go func() { errorsCh <- server.Serve(listener) }()
 	if tlsListener != nil {
@@ -311,7 +311,7 @@ func diagnose() error {
 			}
 		}
 	}
-	fmt.Println("Required: foreground signed iOS app; Apple Devices USB service; private token file; home Wi-Fi IPv4; free TCP80/443 (or explicit HTTP-only mode).")
+	fmt.Println("Required: foreground signed iOS app; Apple Devices USB service; session token typed at the hidden prompt; home Wi-Fi IPv4; free TCP80/443 (or explicit HTTP-only mode).")
 	fmt.Println("USB link speed, iPhone cellular throughput and Steam adoption cannot be established by this command.")
 	return nil
 }
