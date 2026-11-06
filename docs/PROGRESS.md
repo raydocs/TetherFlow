@@ -90,3 +90,6 @@ Sonnet未修改生产代码：高负载下复现origin自身ENOBUFS/EPIPE及EOF�
 
 ## R15集成与CI失败纠正
 已集成a92f0f7文档，历史验证保留且明确R1 block。CI42209137137两项失败已读原始日志：Windows健康用例已不再失败，但doctor预期退出2被pwsh包装当失败（条件接受后缺显式exit0），已补；Mac腐败载荷测试客户端正确拒绝后提前关闭，fixture后续send抛reset误报，限定corrupt案例允许该预期reset，仍断言客户端exit1+payload mismatch，正常数据reset仍失败。没有忽略真实传输失败。新CI需运行E2E和包测试，当前尚未通过。
+
+## 当前等待精确CI95cd339
+Python19项主线程通过（16.776s）。源代码测试修正已推送95cd339，CI42209782957进行中，单个背景gh run watch间隔90秒等待终态，日志/tmp/tetherflow-ci-final-95cd339.log。下一步：读取实际失败日志修正或确认WindowsE2E/提取包执行通过，随后冻结启动独立R2（必须新delegate，含R1问题、修复、全部delta、EOF证据与残余风险）。不把未执行阶段当通过。
