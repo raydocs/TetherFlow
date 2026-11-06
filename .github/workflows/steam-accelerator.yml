@@ -43,6 +43,7 @@ jobs:
           & ./desktop/steam-tools/tetherflow-steam-accelerator.exe --doctor
           # Exit 2 is a FAIL line (a runner has no Apple USB service); anything else is a crash.
           if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 2) { exit $LASTEXITCODE }
+          exit 0
       - name: Windows end-to-end (real exe, real hosts file, ports 27015/80/443)
         # TF_E2E_WINDOWS=1 is the explicit opt-in: the tests change this runner's hosts file and
         # bind its global ports, and refuse to run when GITHUB_ACTIONS is not "true".

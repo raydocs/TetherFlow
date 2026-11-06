@@ -87,3 +87,6 @@ Sonnet未修改生产代码：高负载下复现origin自身ENOBUFS/EPIPE及EOF�
 
 ## Windows健康修复主线程回归完成
 主线程steamaccel race三轮通过54.950s，Windowsvet通过，不能代替Windows实际运行。CI42209137137（1029aa0）仍运行中，需其确认原DNS/TLS健康回归及后续R14 E2E/真实launcher包；未开始新轮审查以免把执行失败漏入最终冻结。R15文档任务自动完成通知待收，不轮询。
+
+## R15集成与CI失败纠正
+已集成a92f0f7文档，历史验证保留且明确R1 block。CI42209137137两项失败已读原始日志：Windows健康用例已不再失败，但doctor预期退出2被pwsh包装当失败（条件接受后缺显式exit0），已补；Mac腐败载荷测试客户端正确拒绝后提前关闭，fixture后续send抛reset误报，限定corrupt案例允许该预期reset，仍断言客户端exit1+payload mismatch，正常数据reset仍失败。没有忽略真实传输失败。新CI需运行E2E和包测试，当前尚未通过。

@@ -45,7 +45,15 @@ class SmokeTests(unittest.TestCase):
                         body = b"\xff" + body[1:]
                     client.sendall(f"HTTP/1.1 200 OK\r\nContent-Length: {count}\r\n\r\n".encode())
                     for start in range(0, count, 7919):
-                        client.sendall(body[start:start + 7919])
+                        try:
+                            client.sendall(body[start:start + 7919])
+                        except (BrokenPipeError, ConnectionResetError):
+                            # The corruption test requires the CLI to reject the first
+                            # bad byte and close early; later fixture sends may reset.
+                            # Valid payload transfers still fail on any reset.
+                            if not corrupt:
+                                raise
+                            break
             except Exception as error:
                 errors.append(error)
 
