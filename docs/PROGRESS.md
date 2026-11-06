@@ -66,3 +66,6 @@ steamaccel race三轮通过（54.983秒）、Windowsvet通过；跨语言10轮�
 
 ## R12集成验证中、R14启动
 已检查并集成09798ba分阶段doctor/可选择serial/协议2+USB+蜂窝CONNECT/TLS预检；407改类型化，probe-host白名单目前CLI复制核心规则，留独立审查同步风险。工作者提到全包并行负载一次失败未提供原因，主线程需全面回归定位，不能以单包通过忽略。R14 Windows opt-in E2E/真实PowerShell行为与manifest包交Sonnet独立worktree，只在GitHub Windows明确开关下允许真实hosts修改，必须失败也恢复。主线程cmd race三轮/Windowsvet运行中。
+
+## 整合回归通过、可靠性独立审查启动
+主线程四包一起race三轮全部通过：usbmux3.968s/steamaccel55.193s/steamsetup6.518s/cmd11.371s，未重现工作者先前未定位并行失败，但不据此断言历史根因已解决。CI42203841177（0cccceb）全绿，最新eefc386 CI进行中。冻结eefc386对530d8ff的生产可靠性diff发起独立Codex xhigh/worktree R1审查（steam-reliability-review-r1-20261106），R14仅Windows测试/打包并行无源代码重叠；最终R2须覆盖新增delta。无真实速度证明。
