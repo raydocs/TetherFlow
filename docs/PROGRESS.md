@@ -24,3 +24,6 @@ Opus计划docs/STEAM-RELIABILITY-PLAN.md已集成；新分支wip/steam-reliabili
 
 ## R3 集成验证中
 已检查并集成4ff204a：HTTP body无进展超时、TLS首因健康分类；旧idle测试改为按新契约验证upload stall冷却，其他取消/keepalive健康断言保留。主线程race三轮、Windows vet及现有跨语言脚本已启动，结果未出前不记通过。工作者称无跨语言对应不准确：仓库integration/verify-host.sh可回归真实Swift+Go传输，主线程补跑。R4 iOS实际peer公网策略与协议2交Sonnet独立worktree，完成自动唤醒。
+
+## R3 验证通过、R2启动
+主线程R3检查完成：steamaccel race三轮、Windows vet通过；TF_INTEGRATION_COUNT=3 bash integration/verify-host.sh通过，含直连/原生USBmux模拟服务两个模式的HTTP/TLS字节完整性。R2 hosts事务日志/故障恢复交Sonnet独立worktree（steam-sonnet-r2-20261106），与R4独立，禁止修改cmd层。暂不发布更新实验包。
