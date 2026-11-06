@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -239,10 +240,10 @@ func (r *Relay) serveTLS(parent context.Context, client net.Conn) {
 				sent, err = writeHello(upstream, hello)
 			}
 			if err == nil {
-				r.pipeTLS(ctx, client, upstream, i)
+				outcome := r.pipeTLS(ctx, client, upstream, i)
 				stopUp()
 				upstream.Close()
-				r.finish(i, false, 0)
+				r.finish(i, outcome.pathFailure(), 0)
 				return
 			}
 			stopUp()
@@ -279,20 +280,65 @@ func closeWrite(conn net.Conn) error {
 	return errNoHalfClose
 }
 
+// tlsCause is why a spliced session ended. Only the first cause counts, and it is
+// recorded before either socket is closed so our own Close cannot mask it.
+type tlsCause int
+
+const (
+	causeUnset       tlsCause = iota
+	causeClean                // orderly end, or idle after downstream progress (keep-alive)
+	causeClient               // client read/write error or reset
+	causeUpstream             // upstream read/write error, or EOF before any downstream byte
+	causeUploadStall          // idle expiry whose last progress was client->upstream
+	causeCancelled            // listener, relay or request-lifetime cancellation
+)
+
+type tlsOutcome struct {
+	bytes uint64
+	cause tlsCause
+}
+
+// pathFailure reports whether the cause is the uplink's fault.
+func (o tlsOutcome) pathFailure() bool {
+	return o.cause == causeUpstream || o.cause == causeUploadStall
+}
+
+type tlsFirstCause struct {
+	mu    sync.Mutex
+	cause tlsCause
+}
+
+func (f *tlsFirstCause) set(c tlsCause) {
+	f.mu.Lock()
+	if f.cause == causeUnset {
+		f.cause = c
+	}
+	f.mu.Unlock()
+}
+func (f *tlsFirstCause) get() tlsCause {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.cause
+}
+
 // Activity in either direction keeps a download alive: a quiet upload direction
 // must not time out a continuously progressing download. A shared idle timer
-// closes both sockets when neither direction makes progress.
+// closes both sockets when neither direction makes progress. It remembers which
+// direction progressed last so expiry can tell a stalled upload from keep-alive.
 type tlsActivity struct {
 	mu               sync.Mutex
 	timer            *time.Timer
 	last             time.Time
+	lastUpload       bool
 	timeout          time.Duration
 	closed           bool
 	client, upstream net.Conn
+	onIdle           func(lastUpload bool)
 }
 
-func newTLSActivity(client, upstream net.Conn, timeout time.Duration) *tlsActivity {
-	a := &tlsActivity{last: time.Now(), timeout: timeout, client: client, upstream: upstream}
+func newTLSActivity(client, upstream net.Conn, timeout time.Duration, onIdle func(bool)) *tlsActivity {
+	// The ClientHello already written upstream counts as upload progress.
+	a := &tlsActivity{last: time.Now(), lastUpload: true, timeout: timeout, client: client, upstream: upstream, onIdle: onIdle}
 	a.timer = time.AfterFunc(timeout, a.expire)
 	return a
 }
@@ -308,14 +354,17 @@ func (a *tlsActivity) expire() {
 		return
 	}
 	a.closed = true
+	upload := a.lastUpload
 	a.mu.Unlock()
+	a.onIdle(upload) // record the cause before closing anything
 	a.client.Close()
 	a.upstream.Close()
 }
-func (a *tlsActivity) touch() {
+func (a *tlsActivity) touch(upload bool) {
 	a.mu.Lock()
 	if !a.closed {
 		a.last = time.Now()
+		a.lastUpload = upload
 	}
 	a.mu.Unlock()
 }
@@ -326,23 +375,59 @@ func (a *tlsActivity) stop() {
 	a.mu.Unlock()
 }
 
+type tlsPipe struct {
+	ctx   context.Context
+	first tlsFirstCause
+	down  atomic.Uint64
+}
+
+// fail records a cause; once the session context is done every later error is a
+// consequence of cancellation, never the path's fault.
+func (p *tlsPipe) fail(c tlsCause) {
+	if p.ctx.Err() != nil {
+		c = causeCancelled
+	}
+	p.first.set(c)
+}
+
 // Hiding ReaderFrom/WriterTo guarantees one fixed copy buffer per direction.
+// fromClient marks the client socket: reading it or writing the upstream is
+// upload progress, the reverse is download progress.
 type activeTLSConn struct {
 	net.Conn
 	activity *tlsActivity
+	pipe     *tlsPipe
+	client   bool
+}
+
+func (c activeTLSConn) side() tlsCause {
+	if c.client {
+		return causeClient
+	}
+	return causeUpstream
 }
 
 func (c activeTLSConn) Read(p []byte) (int, error) {
 	n, err := c.Conn.Read(p)
 	if n > 0 {
-		c.activity.touch()
+		c.activity.touch(c.client)
+	}
+	if err == io.EOF {
+		if !c.client && c.pipe.down.Load() == 0 {
+			c.pipe.fail(causeUpstream) // upstream closed without answering
+		}
+	} else if err != nil {
+		c.pipe.fail(c.side())
 	}
 	return n, err
 }
 func (c activeTLSConn) Write(p []byte) (int, error) {
 	n, err := c.Conn.Write(p)
 	if n > 0 {
-		c.activity.touch()
+		c.activity.touch(!c.client)
+	}
+	if err != nil {
+		c.pipe.fail(c.side())
 	}
 	return n, err
 }
@@ -356,6 +441,7 @@ type countedTLSWriter struct {
 func (w countedTLSWriter) Write(p []byte) (int, error) {
 	n, err := w.activeTLSConn.Write(p)
 	if n > 0 {
+		w.pipe.down.Add(uint64(n))
 		w.relay.mu.Lock()
 		w.relay.paths[w.path].status.Bytes += uint64(n)
 		w.relay.mu.Unlock()
@@ -363,21 +449,37 @@ func (w countedTLSWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func (r *Relay) pipeTLS(ctx context.Context, client, upstream net.Conn, path int) uint64 {
+func (r *Relay) pipeTLS(ctx context.Context, client, upstream net.Conn, path int) tlsOutcome {
+	pipe := &tlsPipe{ctx: ctx}
 	if client.SetDeadline(time.Time{}) != nil || upstream.SetDeadline(time.Time{}) != nil {
+		pipe.fail(causeClient)
 		client.Close()
 		upstream.Close()
-		return 0
+		return tlsOutcome{cause: pipe.first.get()}
 	}
-	activity := newTLSActivity(client, upstream, r.cfg.IdleTimeout)
+	activity := newTLSActivity(client, upstream, r.cfg.IdleTimeout, func(lastUpload bool) {
+		if lastUpload {
+			pipe.fail(causeUploadStall)
+		} else {
+			pipe.fail(causeClean) // idle after downstream progress is keep-alive
+		}
+	})
 	defer activity.stop()
-	stop := context.AfterFunc(ctx, func() { client.Close(); upstream.Close() })
+	stop := context.AfterFunc(ctx, func() { pipe.first.set(causeCancelled); client.Close(); upstream.Close() })
 	defer stop()
+	c := activeTLSConn{client, activity, pipe, true}
+	u := activeTLSConn{upstream, activity, pipe, false}
 	upload := make(chan struct{}, 1)
 	go func() {
-		_, err := io.CopyBuffer(activeTLSConn{upstream, activity}, activeTLSConn{client, activity}, make([]byte, 32<<10))
+		_, err := io.CopyBuffer(u, c, make([]byte, 32<<10))
 		if err == nil {
-			err = closeWrite(upstream)
+			if err = closeWrite(upstream); err != nil {
+				if errors.Is(err, errNoHalfClose) {
+					pipe.fail(causeClean)
+				} else {
+					pipe.fail(causeUpstream)
+				}
+			}
 		}
 		if err != nil {
 			client.Close()
@@ -385,14 +487,23 @@ func (r *Relay) pipeTLS(ctx context.Context, client, upstream net.Conn, path int
 		}
 		upload <- struct{}{}
 	}()
-	n, err := io.CopyBuffer(countedTLSWriter{activeTLSConn{client, activity}, r, path}, activeTLSConn{upstream, activity}, make([]byte, 32<<10))
+	n, err := io.CopyBuffer(countedTLSWriter{c, r, path}, u, make([]byte, 32<<10))
 	if err == nil {
-		err = closeWrite(client)
+		if err = closeWrite(client); err != nil {
+			if errors.Is(err, errNoHalfClose) {
+				pipe.fail(causeClean)
+			} else {
+				pipe.fail(causeClient)
+			}
+		}
 	}
-	if err != nil || ctx.Err() != nil {
+	// An upstream that closed without answering is a failed path: do not hold the
+	// slot waiting for the client to hang up.
+	if err != nil || ctx.Err() != nil || pipe.first.get() == causeUpstream {
 		client.Close()
 		upstream.Close()
 	}
 	<-upload
-	return uint64(n)
+	pipe.fail(causeClean) // no-op unless nothing was recorded
+	return tlsOutcome{bytes: uint64(n), cause: pipe.first.get()}
 }

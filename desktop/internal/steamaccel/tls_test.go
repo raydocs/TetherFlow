@@ -707,6 +707,14 @@ func TestTLSIdleLifetimeAndActiveListenerCancellation(t *testing.T) {
 				s := r.Snapshot()
 				return s.Home.Active+s.Phone.Active == 0 && phoneUsed(r) == 0 && len(r.slots) == 0
 			})
+			if mode == "idle" {
+				// R3: the request was sent and the origin never answered, so the last
+				// progress was client->upstream: an upload stall, which now cools the path.
+				if s := r.Snapshot(); s.Phone.Errors != 1 || s.Phone.CooldownUntil.IsZero() {
+					t.Fatalf("upload stall did not cool down the path: %+v", s)
+				}
+				return
+			}
 			requireHealthyPhone(t, r)
 		})
 	}
@@ -795,4 +803,151 @@ func TestTLSProgressCountersVisibleBeforeStreamCloses(t *testing.T) {
 	if _, err = io.Copy(io.Discard, resp.Body); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// R3 harness: the relay splices a raw client to a scripted upstream. The upstream
+// is a real loopback TCP socket so resets (RST) and EOF (FIN) are the real thing.
+// Home is weighted so it is always the first choice.
+type tlsPathHarness struct {
+	r        *Relay
+	l        net.Listener
+	upstream chan net.Conn
+}
+
+func newTLSPathHarness(t *testing.T, idle time.Duration) *tlsPathHarness {
+	t.Helper()
+	origin, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { origin.Close() })
+	h := &tlsPathHarness{upstream: make(chan net.Conn, 1)}
+	go func() {
+		for {
+			conn, err := origin.Accept()
+			if err != nil {
+				return
+			}
+			h.upstream <- conn
+		}
+	}()
+	c := testConfig()
+	c.HomeWeight, c.PhoneWeight = 1000, 1
+	c.IdleTimeout = idle
+	c.HomeDialContext = func(ctx context.Context, network, target string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, "tcp", origin.Addr().String())
+	}
+	h.r = newRelay(t, c)
+	h.l, _ = startTLSIngress(t, h.r)
+	return h
+}
+
+// open sends a valid ClientHello and returns the client socket and the upstream
+// socket the relay dialled, after the upstream has received the whole hello.
+func (h *tlsPathHarness) open(t *testing.T) (client, upstream net.Conn) {
+	t.Helper()
+	hello := testHello(t, tlsTestHost)
+	client, err := net.Dial("tcp4", h.l.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { client.Close() })
+	if _, err := client.Write(hello); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case upstream = <-h.upstream:
+	case <-time.After(5 * time.Second):
+		t.Fatal("relay never dialled upstream")
+	}
+	t.Cleanup(func() { upstream.Close() })
+	if _, err := io.ReadFull(upstream, make([]byte, len(hello))); err != nil {
+		t.Fatal(err)
+	}
+	return client, upstream
+}
+
+func resetConn(conn net.Conn) {
+	conn.(*net.TCPConn).SetLinger(0)
+	conn.Close()
+}
+
+func (h *tlsPathHarness) settle(t *testing.T) Status {
+	t.Helper()
+	waitBudget(t, func() bool { s := h.r.Snapshot(); return s.Home.Active+s.Phone.Active == 0 })
+	return h.r.Snapshot()
+}
+
+func requirePathCooled(t *testing.T, s Status) {
+	t.Helper()
+	if s.Home.Errors != 1 || s.Home.CooldownUntil.IsZero() || s.Phone.Errors != 0 {
+		t.Fatalf("path failure not recorded: %+v", s)
+	}
+}
+
+func requirePathHealthy(t *testing.T, s Status) {
+	t.Helper()
+	if s.Home.Errors != 0 || !s.Home.CooldownUntil.IsZero() || s.Phone.Errors != 0 || !s.Phone.CooldownUntil.IsZero() {
+		t.Fatalf("path poisoned: %+v", s)
+	}
+}
+
+func TestTLSUpstreamResetCoolsDownPath(t *testing.T) {
+	h := newTLSPathHarness(t, 5*time.Second)
+	_, upstream := h.open(t)
+	resetConn(upstream)
+	requirePathCooled(t, h.settle(t))
+}
+
+func TestTLSUpstreamEOFBeforeFirstByteCoolsDownPath(t *testing.T) {
+	h := newTLSPathHarness(t, 5*time.Second)
+	_, upstream := h.open(t)
+	upstream.Close() // orderly FIN, zero downstream bytes
+	requirePathCooled(t, h.settle(t))
+}
+
+func TestTLSUploadStallCoolsDownPath(t *testing.T) {
+	h := newTLSPathHarness(t, 150*time.Millisecond)
+	client, _ := h.open(t) // upstream received the hello and now says nothing
+	start := time.Now()
+	s := h.settle(t)
+	if time.Since(start) > 3*time.Second {
+		t.Fatal("stall held the slot too long")
+	}
+	requirePathCooled(t, s)
+	_ = client
+}
+
+func TestTLSKeepaliveIdleDoesNotPoisonPath(t *testing.T) {
+	h := newTLSPathHarness(t, 150*time.Millisecond)
+	_, upstream := h.open(t)
+	if _, err := upstream.Write([]byte("server hello")); err != nil { // downstream progress, then silence
+		t.Fatal(err)
+	}
+	requirePathHealthy(t, h.settle(t))
+}
+
+func TestTLSClientResetDoesNotPoisonPath(t *testing.T) {
+	h := newTLSPathHarness(t, 5*time.Second)
+	client, upstream := h.open(t)
+	go func() { // keep the relay writing to the client until it fails
+		buf := make([]byte, 16<<10)
+		for {
+			if _, err := upstream.Write(buf); err != nil {
+				return
+			}
+		}
+	}()
+	if _, err := client.Read(make([]byte, 1)); err != nil {
+		t.Fatal(err)
+	}
+	resetConn(client)
+	requirePathHealthy(t, h.settle(t))
+}
+
+func TestTLSCancelDoesNotPoisonPath(t *testing.T) {
+	h := newTLSPathHarness(t, 5*time.Second)
+	h.open(t) // upstream silent: zero downstream bytes, the worst case for misclassification
+	h.r.Close()
+	requirePathHealthy(t, h.settle(t))
 }

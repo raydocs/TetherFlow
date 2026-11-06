@@ -96,8 +96,19 @@ half-closes the opposite write side when supported; otherwise both sides close
 (safe truncation, never replay). Other I/O failures close both sides.
 `Relay.Close` and listener termination cancel/close that listener's sessions and
 wait for their exit; no HTTP Shutdown call is required. TLS status Bytes counts
-encrypted downstream wire bytes updated during active streams (not only at close); HTTP Bytes remains response-body bytes. TLS
-stream errors after forwarding do not diagnose/poison uplink health.
+encrypted downstream wire bytes updated during active streams (not only at close); HTTP Bytes remains response-body bytes.
+
+Path health: the first cause of a spliced TLS session ends is recorded before any
+socket closes. Upstream read/write errors, upstream EOF with zero downstream bytes,
+and an idle expiry whose last progress was client-to-upstream (upload stall) count
+as path failures (error + `FailureCooldown`). Idle after downstream progress
+(keep-alive), client errors/resets and cancellation never do.
+
+HTTP: each attempt has its own cancellable context. While blocked reading the origin
+body, `IdleTimeout` of no bytes cancels the attempt: a path failure with cooldown,
+and the committed response is aborted (never retried or spliced). Every downstream
+write gets an `IdleTimeout` write deadline (via `http.ResponseController`, ignored
+if unsupported); a stalled client ends the response but is not a path failure.
 
 This enables only explicitly redirected allowlisted local-cache TLS traffic. It
 does not prove current Steam cache adoption, iPhone routing or speed improvements,

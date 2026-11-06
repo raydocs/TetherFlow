@@ -865,3 +865,162 @@ func TestDialCapacityDoesNotPoisonPathHealth(t *testing.T) {
 		t.Fatal(s)
 	}
 }
+
+// ctxBlockBody yields chunks, then blocks until its request context ends.
+type ctxBlockBody struct {
+	ctx    context.Context
+	chunks []string
+	gap    time.Duration
+}
+
+func (b *ctxBlockBody) Read(p []byte) (int, error) {
+	if len(b.chunks) > 0 {
+		if b.gap > 0 {
+			select {
+			case <-time.After(b.gap):
+			case <-b.ctx.Done():
+				return 0, b.ctx.Err()
+			}
+		}
+		n := copy(p, b.chunks[0])
+		b.chunks = b.chunks[1:]
+		return n, nil
+	}
+	<-b.ctx.Done()
+	return 0, b.ctx.Err()
+}
+func (*ctxBlockBody) Close() error { return nil }
+
+func stallingTransport(chunks ...string) roundTripFunc {
+	return func(req *http.Request) (*http.Response, error) {
+		resp := goodResponse("")
+		resp.ContentLength = -1
+		resp.Body = &ctxBlockBody{ctx: req.Context(), chunks: chunks}
+		return resp, nil
+	}
+}
+
+// serveAborting runs one request and returns how it ended, failing on a hang.
+func serveAborting(t *testing.T, r *Relay, w http.ResponseWriter) (aborted bool, took time.Duration) {
+	t.Helper()
+	done := make(chan bool, 1)
+	start := time.Now()
+	go func() {
+		defer func() { done <- recover() == http.ErrAbortHandler }()
+		r.ServeHTTP(w, localRequest("GET", "/"))
+	}()
+	select {
+	case aborted = <-done:
+		return aborted, time.Since(start)
+	case <-time.After(3 * time.Second):
+		t.Fatal("stalled body held the slot beyond IdleTimeout")
+		return false, 0
+	}
+}
+
+func TestHTTPBodyStallAbortsAndCoolsDown(t *testing.T) {
+	c := testConfig()
+	c.IdleTimeout = 100 * time.Millisecond
+	c.PhoneTransport = stallingTransport("prefix")
+	c.HomeTransport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Error("stalled body retried on home")
+		return goodResponse("bad"), nil
+	})
+	r := newRelay(t, c)
+	w := httptest.NewRecorder()
+	aborted, _ := serveAborting(t, r, w)
+	s := r.Snapshot()
+	if !aborted || s.Phone.Errors != 1 || s.Phone.CooldownUntil.IsZero() || s.Phone.Active != 0 || len(r.slots) != 0 {
+		t.Fatalf("aborted=%v %+v slots=%d", aborted, s, len(r.slots))
+	}
+}
+
+func TestHTTPBodyStallNeverRetriesOrSplices(t *testing.T) {
+	c := testConfig()
+	c.IdleTimeout = 100 * time.Millisecond
+	c.PhoneTransport = stallingTransport("prefix")
+	c.HomeTransport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return goodResponse("SPLICED"), nil
+	})
+	r := newRelay(t, c)
+	w := httptest.NewRecorder()
+	aborted, _ := serveAborting(t, r, w)
+	if !aborted || w.Body.String() != "prefix" || w.Code != 200 {
+		t.Fatalf("aborted=%v code=%d body=%q", aborted, w.Code, w.Body.String())
+	}
+	if s := r.Snapshot(); s.Home.Requests != 0 || s.Phone.Requests != 1 {
+		t.Fatalf("retry after commit: %+v", s)
+	}
+}
+
+func TestHTTPBodyProgressOutlivesIdleTimeout(t *testing.T) {
+	c := testConfig()
+	c.IdleTimeout = 150 * time.Millisecond
+	chunks := strings.Split(strings.Repeat("x", 10), "")
+	c.PhoneTransport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		resp := goodResponse("")
+		resp.ContentLength = -1
+		body := &ctxBlockBody{ctx: req.Context(), chunks: chunks, gap: 40 * time.Millisecond}
+		resp.Body = struct {
+			io.Reader
+			io.Closer
+		}{io.LimitReader(body, 10), body} // ends after the last chunk instead of blocking
+		return resp, nil
+	})
+	r := newRelay(t, c)
+	w := httptest.NewRecorder()
+	start := time.Now()
+	r.ServeHTTP(w, localRequest("GET", "/"))
+	if time.Since(start) < 300*time.Millisecond {
+		t.Fatal("test body was not slower than twice the idle timeout")
+	}
+	if w.Body.String() != strings.Repeat("x", 10) {
+		t.Fatalf("progressing body cut off: %q", w.Body.String())
+	}
+	if s := r.Snapshot(); s.Phone.Errors != 0 || !s.Phone.CooldownUntil.IsZero() || s.Phone.Bytes != 10 {
+		t.Fatal(s)
+	}
+}
+
+type endlessBody struct{ ctx context.Context }
+
+func (b endlessBody) Read(p []byte) (int, error) {
+	if err := b.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+func (endlessBody) Close() error { return nil }
+
+func TestHTTPSlowClientDoesNotPoisonPath(t *testing.T) {
+	c := testConfig()
+	c.IdleTimeout = 200 * time.Millisecond
+	c.PhoneTransport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		resp := goodResponse("")
+		resp.ContentLength = -1
+		resp.Body = endlessBody{req.Context()}
+		return resp, nil
+	})
+	r := newRelay(t, c)
+	srv := r.Server("")
+	l, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go srv.Serve(l)
+	t.Cleanup(func() { srv.Close() })
+	conn, err := net.Dial("tcp4", l.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	conn.(*net.TCPConn).SetReadBuffer(4 << 10)
+	if _, err := io.WriteString(conn, "GET / HTTP/1.1\r\nHost: cache.steamcontent.com\r\n\r\n"); err != nil {
+		t.Fatal(err)
+	}
+	// The client never reads: the downstream write must hit its own deadline.
+	waitBudget(t, func() bool { s := r.Snapshot(); return s.Phone.Requests == 1 && s.Phone.Active == 0 })
+	if s := r.Snapshot(); s.Phone.Errors != 0 || !s.Phone.CooldownUntil.IsZero() || s.Home.Requests != 0 {
+		t.Fatalf("slow client poisoned the path: %+v", s)
+	}
+}

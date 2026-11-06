@@ -243,7 +243,10 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "uplinks cooling down", http.StatusServiceUnavailable)
 			return
 		}
-		resp, roundErr := r.paths[i].transport.RoundTrip(out.Clone(ctx))
+		// Each attempt owns a cancellable context: the body idle timer cancels it
+		// to unblock a stalled origin read without touching the request context.
+		attemptCtx, attemptCancel := context.WithCancel(ctx)
+		resp, roundErr := r.paths[i].transport.RoundTrip(out.Clone(attemptCtx))
 		failed := roundErr != nil || resp == nil
 		if resp != nil && (resp.StatusCode == 502 || resp.StatusCode == 503 || resp.StatusCode == 504 ||
 			resp.StatusCode < 200 || resp.StatusCode > 599 || headerSize(resp.Header) > r.cfg.MaxHeaderBytes) {
@@ -253,6 +256,7 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if resp != nil && resp.Body != nil {
 				resp.Body.Close()
 			}
+			attemptCancel()
 			localCapacity := errors.Is(roundErr, errDialBusy) || errors.Is(roundErr, errPhoneCapacity)
 			r.finish(i, req.Context().Err() == nil && r.ctx.Err() == nil && !localCapacity, 0)
 			if errors.Is(roundErr, errDialBusy) {
@@ -274,7 +278,7 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "uplinks unavailable", http.StatusBadGateway)
 			return
 		}
-		r.writeResponse(w, req, resp, i)
+		r.writeResponse(w, req, resp, i, attemptCancel)
 		return
 	}
 }
@@ -293,12 +297,22 @@ func (r *Relay) contextError(w http.ResponseWriter, req *http.Request, ctx conte
 }
 
 // Tracking distinguishes a downstream write failure from an upstream read failure.
+// Each write gets its own deadline, so a stalled client fails the write without
+// being mistaken for a stalled origin. ErrNotSupported just means no deadline.
 type downstream struct {
-	w   io.Writer
-	err error
+	w       io.Writer
+	rc      *http.ResponseController
+	timeout time.Duration
+	err     error
 }
 
 func (d *downstream) Write(p []byte) (int, error) {
+	if d.rc != nil {
+		if err := d.rc.SetWriteDeadline(time.Now().Add(d.timeout)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+			d.err = err
+			return 0, err
+		}
+	}
 	n, err := d.w.Write(p)
 	if err != nil {
 		d.err = err
@@ -308,21 +322,71 @@ func (d *downstream) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func (r *Relay) writeResponse(w http.ResponseWriter, req *http.Request, resp *http.Response, i int) {
+// idleReader arms its timer only while blocked in Read, so time spent writing to
+// a slow client never counts. Firing cancels the attempt context, which unblocks
+// the transport's body read. The deadline check ignores a stale firing that lost
+// a race with a Read that has since returned and re-armed.
+type idleReader struct {
+	r       io.Reader
+	timeout time.Duration
+	cancel  context.CancelFunc
+	timer   *time.Timer
+	mu      sync.Mutex
+	armed   bool
+	due     time.Time
+}
+
+func newIdleReader(r io.Reader, timeout time.Duration, cancel context.CancelFunc) *idleReader {
+	b := &idleReader{r: r, timeout: timeout, cancel: cancel}
+	b.timer = time.AfterFunc(timeout, b.fire)
+	b.timer.Stop()
+	return b
+}
+
+func (b *idleReader) fire() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.armed && !time.Now().Before(b.due) {
+		b.cancel()
+	}
+}
+
+func (b *idleReader) Read(p []byte) (int, error) {
+	b.mu.Lock()
+	b.armed, b.due = true, time.Now().Add(b.timeout)
+	b.timer.Reset(b.timeout)
+	b.mu.Unlock()
+	n, err := b.r.Read(p)
+	b.mu.Lock()
+	b.armed = false
+	b.timer.Stop()
+	b.mu.Unlock()
+	return n, err
+}
+
+func (r *Relay) writeResponse(w http.ResponseWriter, req *http.Request, resp *http.Response, i int, attemptCancel context.CancelFunc) {
+	defer attemptCancel()
 	if resp.Body != nil {
 		defer resp.Body.Close()
 	}
 	for k, vs := range cleanHeaders(resp.Header) {
 		w.Header()[k] = vs
 	}
+	d := &downstream{w: w, rc: http.NewResponseController(w), timeout: r.cfg.IdleTimeout}
+	if err := d.rc.SetWriteDeadline(time.Now().Add(r.cfg.IdleTimeout)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+		d.rc = nil
+	}
 	w.WriteHeader(resp.StatusCode)
 	var n int64
 	var err error
-	d := &downstream{w: w}
+	var body *idleReader
 	if req.Method != http.MethodHead && resp.Body != nil {
+		body = newIdleReader(resp.Body, r.cfg.IdleTimeout, attemptCancel)
+		defer body.timer.Stop()
 		// Exactly one fixed-size buffer per admitted stream; no download buffering.
-		n, err = io.CopyBuffer(d, struct{ io.Reader }{resp.Body}, make([]byte, 32<<10))
+		n, err = io.CopyBuffer(d, struct{ io.Reader }{body}, make([]byte, 32<<10))
 	}
+	// First cause wins: a client-side failure or cancellation is never the path's.
 	failed := err != nil && d.err == nil && req.Context().Err() == nil && r.ctx.Err() == nil
 	r.finish(i, failed, uint64(n))
 	if err != nil {
