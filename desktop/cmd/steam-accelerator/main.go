@@ -26,7 +26,12 @@ import (
 func main() {
 	if err := run(); err != nil {
 		log.Print(err)
-		os.Exit(1)
+		code := 1
+		var coded interface{ ExitCode() int }
+		if errors.As(err, &coded) {
+			code = coded.ExitCode()
+		}
+		os.Exit(code)
 	}
 }
 func run() error {
@@ -38,7 +43,9 @@ func run() error {
 	httpOnly := flag.Bool("http-only", false, "disable opaque HTTPS/SNI port443 passthrough; HTTP80 only")
 	enable := flag.Bool("enable-steam", false, "explicitly install temporary Steam discovery hosts entry (Windows administrator)")
 	benchmark := flag.Bool("check-phone", false, "verify 128 MiB USB application-path payload and print Mbps; not a cellular test")
-	doctor := flag.Bool("doctor", false, "print local IPv4 interfaces and prerequisites without changing settings")
+	doctor := flag.Bool("doctor", false, "read-only OK/WARN/FAIL checks (interfaces, Apple USB service, USB phones, link metadata, ports with --home-ip, hosts); exit 2 on FAIL")
+	asJSON := flag.Bool("json", false, "with --doctor: print the report as JSON")
+	probeHostFlag := flag.String("probe-host", defaultProbeHost, "allowlisted host for the cellular reachability probe (CONNECT :443 then verified TLS); default is a Steam CDN name still to be confirmed on a device")
 	uplinkMode := flag.String("uplink-mode", "dual", "dual (home and phone), home (no phone, USB or token) or phone (never falls back to home)")
 	report := flag.String("report", "", "local JSON diagnostic summary, no token or download URLs (default tetherflow-status-<uplink-mode>.json)")
 	homeWeight := flag.Int("home-weight", 1, "relative home network capacity")
@@ -68,6 +75,9 @@ func run() error {
 			}
 		}
 	}
+	if *asJSON && !*doctor {
+		return errDoctorJSON
+	}
 	if *recoveryLog == "" {
 		*recoveryLog = defaultRecoveryLog(*report)
 	}
@@ -75,12 +85,12 @@ func run() error {
 		return guard(*parent, *lease, *parentHandle, *recoveryLog)
 	}
 	if *doctor {
-		return diagnose()
+		return runDoctor(context.Background(), doctorOptions{Mode: mode, HomeIP: *home, HTTPOnly: *httpOnly, ExternalTunnel: *externalTunnel, Serial: *udid, JSON: *asJSON}, prodDoctorEnv(), os.Stdout)
 	}
 	if *phones {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		return listPhones(ctx)
+		return listPhones(ctx, os.Stdout)
 	}
 	if *recoverLease != "" {
 		p, e := hostsPath()
@@ -92,6 +102,18 @@ func run() error {
 	if !*benchmark {
 		if err := validateHome(*home); err != nil {
 			return err
+		}
+	}
+	var probeHost string
+	if usePhone && !*benchmark {
+		// Checked before USB or the token are touched; a bad host is a usage error.
+		var allowed []string
+		if *extraHosts != "" {
+			allowed = strings.Split(*extraHosts, ",")
+		}
+		var e error
+		if probeHost, e = checkProbeHost(*probeHostFlag, allowed); e != nil {
+			return e
 		}
 	}
 	if usePhone && !*externalTunnel {
@@ -113,7 +135,7 @@ func run() error {
 	if usePhone {
 		var err error
 		token, err = acquireStartupToken(tokens.read, func(candidate string) error {
-			return probePhone(context.Background(), *phone, candidate)
+			return probeStartup(context.Background(), *phone, candidate)
 		}, log.Printf)
 		if err != nil {
 			return err
@@ -129,7 +151,17 @@ func run() error {
 			return nil
 		}
 		tokens.remember(token)
-		log.Print("Authenticated iPhone USB diagnostic passed (not a cellular speed test).")
+		log.Print("Authenticated iPhone protocol-2 info and USB loop passed (not a cellular speed test).")
+		// Last preflight step; a CONNECT failure ends startup before any port or hosts change.
+		tlsWarn, probeErr := cellularProbe(context.Background(), *phone, token, probeHost)
+		if probeErr != nil {
+			return fmt.Errorf("iPhone cellular reachability preflight failed; no settings changed: %w", redact(probeErr, token))
+		}
+		if tlsWarn != nil {
+			log.Printf("WARNING: the phone reached %s:443 but TLS verification failed (%v); the probe host may not serve TLS under that name. Reachability, not speed, was tested; use --probe-host to choose another allowlisted host.", probeHost, redact(tlsWarn, token))
+		} else {
+			log.Printf("Cellular reachability preflight passed: the phone opened %s:443 and TLS verified with system roots (not a speed test).", probeHost)
+		}
 	}
 	cfg := steamaccel.Config{HomeIPv4: *home, AllowHomePeer: true, PhoneProxyAddr: *phone, PhoneToken: token, Uplinks: mode, HomeWeight: *homeWeight, PhoneWeight: *phoneWeight}
 	if *extraHosts != "" {
@@ -303,26 +335,4 @@ func validateHome(value string) error {
 		}
 	}
 	return errors.New("--home-ip is not assigned to an active local interface")
-}
-func diagnose() error {
-	fmt.Println("TetherFlow Steam diagnostic — no network settings changed")
-	ifaces, e := net.Interfaces()
-	if e != nil {
-		return e
-	}
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-		addrs, _ := iface.Addrs()
-		for _, a := range addrs {
-			ip, _, e := net.ParseCIDR(a.String())
-			if e == nil && ip.To4() != nil {
-				fmt.Printf("%s: %s (index %d)\n", iface.Name, ip, iface.Index)
-			}
-		}
-	}
-	fmt.Println("Required: foreground signed iOS app; Apple Devices USB service; session token typed at the hidden prompt; home Wi-Fi IPv4; free TCP80/443 (or explicit HTTP-only mode).")
-	fmt.Println("USB link speed, iPhone cellular throughput and Steam adoption cannot be established by this command.")
-	return nil
 }

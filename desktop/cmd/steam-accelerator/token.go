@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -134,9 +135,8 @@ func (s *tokenSource) secrets() []string {
 	return append([]string(nil), s.known...)
 }
 
-// errPhoneRejected marks a phone answer of 407. checkPhone formats its status
-// error as "phone diagnostic HTTP 407 ..."; TestProbeClassifiesRejection runs the
-// real checkPhone against a 407 server so a change to that text fails a test.
+// errPhoneRejected marks a phone answer of 407, read from the typed
+// phoneCheckError status and never from message text.
 var errPhoneRejected = errors.New("phone rejected the session token")
 
 // probePhone verifies a candidate token with the authenticated diagnostic
@@ -147,7 +147,13 @@ func probePhone(ctx context.Context, addr, token string) error {
 	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 	_, err := checkPhone(ctx, addr, token, probeBytes)
-	if err != nil && strings.Contains(err.Error(), "HTTP 407") {
+	return asRejection(err)
+}
+
+// asRejection maps a phone 407 to errPhoneRejected and leaves every other error alone.
+func asRejection(err error) error {
+	var pe *phoneCheckError
+	if errors.As(err, &pe) && pe.Status == http.StatusProxyAuthRequired {
 		return errPhoneRejected
 	}
 	return err

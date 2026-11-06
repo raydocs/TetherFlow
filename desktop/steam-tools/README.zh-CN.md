@@ -76,9 +76,20 @@ GOOS=windows GOARCH=amd64 go build -trimpath -o steam-tools/tetherflow-steam-acc
 
 ### 多设备与已有隧道（高级）
 
-`--list-phones` 只列出 USB 设备，不选择 Wi-Fi 同步设备；多台手机时显式
-`-DeviceUDID`（对应 CLI `--device-udid`）。程序不会在断线后偷偷换另一台设备。
+`--list-phones` 只列出 USB 设备（每行 `serial=… id=… link=…`，不含 Wi-Fi 同步设备），其中 serial 可直接用于
+`-DeviceUDID`（对应 CLI `--device-udid`）；serial 只在该命令输出，不写入日志或报告。多台手机时必须显式指定。程序不会在断线后偷偷换另一台设备。
 默认内置 USB 转发绑定随机本机回环端口，不占用固定8283。若你已有确认可用的
 iproxy，可用脚本 `-UseExistingTunnel`；或显式 `-IProxy 'iproxy.exe'` 启动外部工具。
 这两种模式会加 `--external-tunnel`，默认期望本机127.0.0.1:8283。不需要为了正常使用
 额外安装它。内置 USB 实现的模拟服务测试，不等于已经验证 Apple Devices 的实际兼容性。
+
+## 体检与启动前探测（`--doctor`，只读）
+
+`--doctor [--uplink-mode home|dual|phone] [--home-ip X] [--json]` 逐项输出 OK/WARN/FAIL：网卡、Apple USB
+服务、USB 手机、链路元数据（480 Mbps 及以下为 WARN，仅是服务上报的元数据，不是吞吐）、给出 `--home-ip`
+时的 80/443 绑定、hosts 检查（遗留 lease 会给出确切的 `--recover-lease <lease>` 命令）。有 FAIL 时退出码为 2；
+不写 hosts、不改账户。`home` 模式不需要 USB。
+
+手机模式启动时按顺序：`/diagnostic/info` 协议为 2 → 精确字节 USB 回环 → 经手机认证的 `CONNECT <probe-host>:443` →
+用系统根证书验证的 TLS。CONNECT 失败会在绑定端口和写 hosts 之前终止；TLS 失败仅 WARN（探测主机可能不提供 TLS，
+可用 `--probe-host` 换一个白名单主机；默认 `steampipe.akamaized.net` 仍待真机确认）。该探测只说明蜂窝可达，**不是速度**，也不输出 Mbps。

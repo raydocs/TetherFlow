@@ -4,33 +4,82 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"sort"
+	"strings"
 	"time"
 
 	"tetherflow-desktop/internal/usbmux"
 )
 
-func listPhones(ctx context.Context) error {
-	client, err := usbmux.NewClient(usbmux.Config{})
-	if err != nil {
-		return err
+// testUSBClient is nil in production; tests point the USB commands at a fake service.
+var testUSBClient *usbmux.Client
+
+func usbClient() (*usbmux.Client, error) {
+	if testUSBClient != nil {
+		return testUSBClient, nil
 	}
-	devices, err := client.ListUSB(ctx)
+	return usbmux.NewClient(usbmux.Config{})
+}
+
+// normalizeSerial is usbmux's selection normalization (lower case, dashes removed), so a
+// printed serial is exactly what --device-udid matches. The round trip is under test.
+func normalizeSerial(s string) string {
+	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(s), "-", ""))
+}
+
+// usbPhones keeps the USB entries startup could select, ordered by serial. Network
+// (Wi-Fi sync) entries and entries without a serial or ID are not selectable.
+func usbPhones(devices []usbmux.Device) []usbmux.Device {
+	var out []usbmux.Device
+	for _, d := range devices {
+		if d.DeviceID != 0 && d.ConnectionType == "USB" && normalizeSerial(d.Serial) != "" {
+			d.Serial = normalizeSerial(d.Serial)
+			out = append(out, d)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Serial < out[j].Serial })
+	return out
+}
+
+func listUSBDevices(ctx context.Context) ([]usbmux.Device, error) {
+	client, err := usbClient()
+	if err != nil {
+		return nil, err
+	}
+	return client.ListUSB(ctx)
+}
+
+// listPhones is the one place a selectable serial is printed: it only runs for the explicit
+// --list-phones command. Doctor, logs and the report never carry it.
+func listPhones(ctx context.Context, w io.Writer) error {
+	devices, err := listUSBDevices(ctx)
 	if err != nil {
 		return fmt.Errorf("Apple USB service unavailable; install/open Apple Devices, connect and trust iPhone: %w", err)
 	}
-	if len(devices) == 0 {
+	phones := usbPhones(devices)
+	if len(phones) == 0 {
 		return fmt.Errorf("no USB iPhone found; Wi-Fi sync devices are deliberately excluded")
 	}
-	for _, device := range devices {
-		fmt.Printf("USB device ID=%d, service-reported link=%.0f Mbps (not a throughput test)\n", device.DeviceID, float64(device.ConnectionSpeed)/1e6)
+	count := map[string]int{}
+	for _, d := range phones {
+		count[d.Serial]++
 	}
+	for _, d := range phones {
+		line := fmt.Sprintf("serial=%s id=%d link=%dMbps", d.Serial, d.DeviceID, d.ConnectionSpeed/1_000_000)
+		if count[d.Serial] > 1 {
+			line += " duplicate-serial=selection-refused"
+		}
+		fmt.Fprintln(w, line)
+	}
+	fmt.Fprintln(w, "Pass a serial to --device-udid. link is the Apple USB service's metadata, not a throughput test.")
 	return nil
 }
 
 func startPhoneTunnel(ctx context.Context, serial string) (string, func(), error) {
-	client, err := usbmux.NewClient(usbmux.Config{})
+	client, err := usbClient()
 	if err != nil {
 		return "", nil, err
 	}

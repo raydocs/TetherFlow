@@ -350,6 +350,10 @@ func fakePhone(t *testing.T, good string, requests *atomic.Int32) string {
 			w.WriteHeader(http.StatusProxyAuthRequired)
 			return
 		}
+		if r.URL.Path == "/diagnostic/info" { // R12: startup now requires the protocol-2 answer first
+			_, _ = io.WriteString(w, `{"protocol":2}`)
+			return
+		}
 		n, _ := strconv.Atoi(r.URL.Query().Get("bytes"))
 		w.Header().Set("Content-Length", strconv.Itoa(n))
 		off := 0

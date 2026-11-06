@@ -26,9 +26,20 @@ if (-not $CheckPhoneOnly) {
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         throw 'Open PowerShell as administrator, then run this script. It installs a temporary Steam discovery entry; no system proxy is changed.'
     }
-    & $Executable --doctor
-    if ($LASTEXITCODE -ne 0) { throw 'Diagnostics failed.' }
-    if (-not $HomeIP) { $HomeIP = Read-Host 'Home Wi-Fi IPv4 from the list above (not iPhone Ethernet)' }
+    # Read-only checks, so USB is not needed in home mode. Exit 2 means a FAIL line above: stop.
+    $doctorArgs = @('--doctor', '--uplink-mode', $uplinkMode)
+    if ($UseExistingTunnel -or $IProxy) { $doctorArgs += '--external-tunnel' }
+    if ($DeviceUDID -and -not ($UseExistingTunnel -or $IProxy)) { $doctorArgs += @('--device-udid', $DeviceUDID) }
+    if ($HttpOnly) { $doctorArgs += '--http-only' }
+    if ($HomeIP) { $doctorArgs += @('--home-ip', $HomeIP) }
+    & $Executable @doctorArgs
+    if ($LASTEXITCODE -ne 0) { throw "Doctor reported a FAIL (exit code $LASTEXITCODE). Fix the FAIL line above; nothing was changed." }
+    if (-not $HomeIP) {
+        $HomeIP = Read-Host 'Home Wi-Fi IPv4 from the list above (not iPhone Ethernet)'
+        $doctorArgs += @('--home-ip', $HomeIP)
+        & $Executable @doctorArgs
+        if ($LASTEXITCODE -ne 0) { throw "Doctor reported a FAIL (exit code $LASTEXITCODE). Fix the FAIL line above; nothing was changed." }
+    }
 }
 $tunnel = $null
 try {
