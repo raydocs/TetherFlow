@@ -27,3 +27,6 @@ Opus计划docs/STEAM-RELIABILITY-PLAN.md已集成；新分支wip/steam-reliabili
 
 ## R3 验证通过、R2启动
 主线程R3检查完成：steamaccel race三轮、Windows vet通过；TF_INTEGRATION_COUNT=3 bash integration/verify-host.sh通过，含直连/原生USBmux模拟服务两个模式的HTTP/TLS字节完整性。R2 hosts事务日志/故障恢复交Sonnet独立worktree（steam-sonnet-r2-20261106），与R4独立，禁止修改cmd层。暂不发布更新实验包。
+
+## R2 集成验证中
+已核对日志格式/大小界限与五种恢复状态并集成3997e13，原hosts_test未改。主线程race三轮与Windows vet正在运行；Windows DACL/强制文件锁尚需CI实际执行，不计为已通过。R5 guardian临时锁重试/恢复日志/崩溃清理接线交Sonnet独立worktree，steam-sonnet-r5-20261106。R4仍独立进行，不轮询。
