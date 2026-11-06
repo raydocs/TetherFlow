@@ -18,3 +18,6 @@ Astra审计已完成，确认不仅差真机：同机重连、重新认证、传
 
 ## 计划已集成
 Opus计划docs/STEAM-RELIABILITY-PLAN.md已集成；新分支wip/steam-reliability，CI触发已扩展。开始R1同serial重连，Sonnet独立worktree实施。其余按计划依赖推进，未声称完成。
+
+## R1 集成（2026-11-06）
+已检查五文件diff并cherry-pick为6c66b6c。同serial新DeviceID重连，Client.Connect保留严格ID语义；ConnectFailures包含关闭/取消，不应当作健康失败统计。主线程执行usbmux race三轮与Windows vet（结果见线程）。R3传输健康/HTTP停滞超时已交Sonnet独立worktree，clientRequestId steam-sonnet-r3-20261106，完成自动唤醒。R2、R4及后续任务仍未实施。
