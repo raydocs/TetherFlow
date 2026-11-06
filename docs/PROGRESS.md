@@ -63,3 +63,6 @@ steamaccel race三轮通过（54.983秒）、Windowsvet通过；跨语言10轮�
 
 ## R11集成验证中、R12启动
 已检查并集成3725500：CLI/launcher三模式、历史累计与同窗口并发分离、mode报告文件、原子写。主线程cmd race三轮/Windowsvet进行中。active统计采用任一路>1Mbps窗口，低于阈值字节不计sustained，必须明确不等于全程平均。R12分阶段doctor/可选择serial/协议2与蜂窝CONNECT预检交Sonnet独立worktree；补准许token.go最小类型化407分类，禁止凭错误文本推断。
+
+## R12集成验证中、R14启动
+已检查并集成09798ba分阶段doctor/可选择serial/协议2+USB+蜂窝CONNECT/TLS预检；407改类型化，probe-host白名单目前CLI复制核心规则，留独立审查同步风险。工作者提到全包并行负载一次失败未提供原因，主线程需全面回归定位，不能以单包通过忽略。R14 Windows opt-in E2E/真实PowerShell行为与manifest包交Sonnet独立worktree，只在GitHub Windows明确开关下允许真实hosts修改，必须失败也恢复。主线程cmd race三轮/Windowsvet运行中。
