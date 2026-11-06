@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -93,10 +94,32 @@ func minimum(a, b int) int {
 	return b
 }
 
-// Update locks the existing file and writes in-place to preserve Windows hosts ACLs.
-// A failed write attempts rollback; no whole-file replacement or backup restores foreign data.
+const maxHostsBytes = 1024 * 1024
+
+// faultHook is a test seam, nil in production. It is called with "after-journal",
+// "mid-write", "after-write" and "after-sync" during the in-place write of Update.
+var faultHook func(stage string)
+
+func hook(stage string) {
+	if faultHook != nil {
+		faultHook(stage)
+	}
+}
+
+// Update locks the existing file and writes in place, which keeps its identity and ACL.
+// Under the lock it first recovers any write-ahead journal left by a crashed update, then
+// journals old and new content before touching the file. A failed write is rolled back;
+// if that fails too, or recovery is ambiguous, the journal is kept and the error matches
+// ErrNeedsManualRecovery. No whole-file replacement or backup restores foreign data.
 func Update(path, ip, lease string) (bool, error) {
-	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	canon, err := canonicalHostsPath(path)
+	if err != nil {
+		return false, err
+	}
+	if err = checkDirTrusted(filepath.Dir(canon)); err != nil {
+		return false, err
+	}
+	f, err := os.OpenFile(canon, os.O_RDWR, 0)
 	if err != nil {
 		return false, err
 	}
@@ -105,17 +128,14 @@ func Update(path, ip, lease string) (bool, error) {
 		return false, err
 	}
 	defer unlockFile(f)
-	stat, err := f.Stat()
+	cur, err := readLocked(f)
 	if err != nil {
 		return false, err
 	}
-	if !stat.Mode().IsRegular() || stat.Size() > 1024*1024 {
-		return false, errors.New("unexpected hosts file type or size")
-	}
-	old, err := io.ReadAll(io.LimitReader(f, 1024*1024+1))
-	if err != nil {
+	if cur, err = recoverJournals(f, canon, cur); err != nil {
 		return false, err
 	}
+	old := cur
 	next, err := Rewrite(old, ip, lease)
 	if err != nil {
 		return false, err
@@ -123,21 +143,153 @@ func Update(path, ip, lease string) (bool, error) {
 	if bytes.Equal(old, next) {
 		return false, nil
 	}
-	write := func(data []byte) error {
-		if _, e := f.Seek(0, 0); e != nil {
-			return e
-		}
-		if _, e := f.Write(data); e != nil {
-			return e
-		}
-		if e := f.Truncate(int64(len(data))); e != nil {
-			return e
-		}
-		return f.Sync()
+	if len(next) > maxNewBytes {
+		return false, errors.New("hosts update would exceed the size limit")
 	}
-	if err = write(next); err != nil {
-		rollback := write(old)
-		return false, fmt.Errorf("hosts update: %w (rollback: %v)", err, rollback)
+	jp := journalPath(canon, lease)
+	if err = writeJournal(jp, lease, old, next); err != nil {
+		return false, err
 	}
+	hook("after-journal")
+	if err = writeInPlace(f, next, true); err != nil {
+		if rb := writeInPlace(f, old, false); rb != nil {
+			return false, &ManualRecoveryError{Journal: jp, Reason: "write failed and rollback failed", Errs: []error{err, rb}}
+		}
+		_ = removeJournal(jp)
+		return false, fmt.Errorf("hosts update: %w", err)
+	}
+	// A journal left behind here is recognised as applied by the next Update.
+	_ = removeJournal(jp)
 	return true, nil
+}
+
+func canonicalHostsPath(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.EvalSymlinks(abs)
+}
+
+func readLocked(f *os.File) ([]byte, error) {
+	stat, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !stat.Mode().IsRegular() || stat.Size() > maxHostsBytes {
+		return nil, errors.New("unexpected hosts file type or size")
+	}
+	if _, err = f.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	data, err := io.ReadAll(io.LimitReader(f, maxHostsBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxHostsBytes {
+		return nil, errors.New("unexpected hosts file type or size")
+	}
+	return data, nil
+}
+
+// writeInPlace overwrites from offset 0, truncates and syncs. The hooks sit only on the
+// main path so recovery and rollback never trigger a test crash.
+func writeInPlace(f *os.File, data []byte, hooks bool) error {
+	if _, e := f.Seek(0, io.SeekStart); e != nil {
+		return e
+	}
+	h := len(data) / 2
+	if _, e := f.Write(data[:h]); e != nil {
+		return e
+	}
+	if hooks {
+		hook("mid-write")
+	}
+	if _, e := f.Write(data[h:]); e != nil {
+		return e
+	}
+	if hooks {
+		hook("after-write")
+	}
+	if e := f.Truncate(int64(len(data))); e != nil {
+		return e
+	}
+	e := f.Sync()
+	if hooks {
+		hook("after-sync")
+	}
+	return e
+}
+
+// Inspection describes a hosts file without changing anything.
+type Inspection struct {
+	Leases          []LeaseEntry
+	ForeignOverride bool
+	Malformed       bool
+	PendingJournals []string
+}
+
+type LeaseEntry struct{ Lease, IP string }
+
+// Inspect never writes and takes no lock, so it may race a running Update; callers treat it as a snapshot.
+func Inspect(path string) (Inspection, error) {
+	var in Inspection
+	canon, err := canonicalHostsPath(path)
+	if err != nil {
+		return in, err
+	}
+	f, err := os.Open(canon)
+	if err != nil {
+		return in, err
+	}
+	defer f.Close()
+	data, err := readLocked(f)
+	if err != nil {
+		return in, err
+	}
+	seen := map[string]bool{}
+	lines := bytes.SplitAfter(data, []byte("\n"))
+	for i := 0; i < len(lines); i++ {
+		line := strings.TrimSpace(string(lines[i]))
+		if strings.HasPrefix(line, begin) {
+			l := strings.TrimPrefix(line, begin)
+			j := i + 1
+			for j < len(lines) && strings.TrimSpace(string(lines[j])) != end+l {
+				j++
+			}
+			if !validLease.MatchString(l) || j == len(lines) || j-i-1 != 1 || seen[l] {
+				in.Malformed = true
+				if j == len(lines) {
+					break
+				}
+				i = j
+				continue
+			}
+			fields := strings.Fields(strings.TrimSpace(string(lines[i+1])))
+			if len(fields) != 2 || net.ParseIP(fields[0]) == nil || fields[1] != Domain {
+				in.Malformed = true
+			} else {
+				in.Leases = append(in.Leases, LeaseEntry{Lease: l, IP: fields[0]})
+			}
+			seen[l] = true
+			i = j
+			continue
+		}
+		f := strings.Fields(strings.SplitN(line, "#", 2)[0])
+		for _, host := range f[minimum(1, len(f)):] {
+			if strings.EqualFold(strings.TrimSuffix(host, "."), Domain) {
+				in.ForeignOverride = true
+			}
+		}
+	}
+	names, err := journalNames(canon)
+	if err != nil {
+		return in, err
+	}
+	for _, n := range names {
+		if n.tmp == "" {
+			in.PendingJournals = append(in.PendingJournals, n.path)
+		}
+	}
+	return in, nil
 }
