@@ -56,12 +56,13 @@ type ifaceAddr struct {
 }
 
 type doctorEnv struct {
-	interfaces func() ([]ifaceAddr, error)
-	listUSB    func(context.Context) ([]usbmux.Device, error)
-	listen     func(network, address string) (net.Listener, error)
-	hostsPath  func() (string, error)
-	inspect    func(string) (steamsetup.Inspection, error)
-	exe        string
+	interfaces  func() ([]ifaceAddr, error)
+	listUSB     func(context.Context) ([]usbmux.Device, error)
+	listen      func(network, address string) (net.Listener, error)
+	hostsPath   func() (string, error)
+	inspect     func(string) (steamsetup.Inspection, error)
+	recoverable func(string) bool
+	exe         string
 }
 
 func prodDoctorEnv() doctorEnv {
@@ -69,7 +70,7 @@ func prodDoctorEnv() doctorEnv {
 	if p, err := os.Executable(); err == nil {
 		exe = filepath.Base(p)
 	}
-	return doctorEnv{interfaces: activeIPv4, listUSB: listUSBDevices, listen: net.Listen, hostsPath: hostsPath, inspect: steamsetup.Inspect, exe: exe}
+	return doctorEnv{interfaces: activeIPv4, listUSB: listUSBDevices, listen: net.Listen, hostsPath: hostsPath, inspect: steamsetup.Inspect, recoverable: steamsetup.Recoverable, exe: exe}
 }
 
 func activeIPv4() ([]ifaceAddr, error) {
@@ -277,7 +278,7 @@ func hostsCheck(env doctorEnv) doctorCheck {
 			c.Status = status
 		}
 	}
-	if in.Malformed && len(in.PendingJournals) == 0 {
+	if in.Malformed && !(len(in.PendingJournals) > 0 && env.recoverable != nil && env.recoverable(path)) {
 		raise(statusFail)
 		details = append(details, "a TetherFlow block is malformed; inspect the hosts file by hand, it is not touched")
 	}

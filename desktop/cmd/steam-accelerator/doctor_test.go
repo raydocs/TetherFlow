@@ -385,7 +385,7 @@ func TestListPhonesSerialRoundTripsToSelectUSB(t *testing.T) {
 }
 
 func TestDoctorJournaledTornBlockDefersToLockedRecovery(t *testing.T) {
-	env := doctorEnv{hostsPath: func() (string, error) { return "fixture-hosts", nil }, inspect: func(string) (steamsetup.Inspection, error) {
+	env := doctorEnv{recoverable: func(string) bool { return true }, hostsPath: func() (string, error) { return "fixture-hosts", nil }, inspect: func(string) (steamsetup.Inspection, error) {
 		return steamsetup.Inspection{Malformed: true, PendingJournals: []string{"fixture-journal"}}, nil
 	}}
 	result := hostsCheck(env)

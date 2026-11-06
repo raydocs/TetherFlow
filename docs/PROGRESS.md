@@ -75,3 +75,6 @@ steamaccel race三轮通过（54.983秒）、Windowsvet通过；跨语言10轮�
 
 ## 审查恢复顺序修复验证中
 主线程增加steamsetup.Recover仅持锁修复日志不改lease；reclaim在持有正确端口证明后先Recover再Inspect，doctor对journal存在的torn状态给WARN且保持只读，实际恢复仍歧义即拒绝。新增库层repair-only和doctor门槛回归；测试运行中。此前三项小修Go/Python回归通过，但最终R2仍须复核，不关闭EOF阻断。
+
+## R14集成验证中、恢复门槛修正
+已集成ba8e8db的WindowsE2E/提取包真实launcher行为脚本，仅WindowsGitHubActions显式开关执行；本机仅编译，未记CI通过。恢复顺序修复首次完整cmd测试发现doctor过宽WARN让无效journal掩盖外来修改，已保留旧断言并改为read-only Recoverable识别合法journal后才降WARN；不重写/删除journal。回归进行中，阻断未解除。R15文档须等最后行为和CI确定再写。

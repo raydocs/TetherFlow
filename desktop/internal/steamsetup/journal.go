@@ -273,3 +273,51 @@ func recoverJournals(f *os.File, canon string, cur []byte) ([]byte, error) {
 	}
 	return cur, nil
 }
+
+// Recoverable checks journal recognition without changing hosts or journal files.
+func Recoverable(path string) bool {
+	canon, err := canonicalHostsPath(path)
+	if err != nil {
+		return false
+	}
+	f, err := os.Open(canon)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	if lockFile(f) != nil {
+		return false
+	}
+	defer unlockFile(f)
+	cur, err := readLocked(f)
+	if err != nil {
+		return false
+	}
+	names, err := journalNames(canon)
+	if err != nil {
+		return false
+	}
+	found := false
+	for _, n := range names {
+		if n.tmp != "" {
+			continue
+		}
+		found = true
+		data, e := readJournalFile(n.path)
+		if e != nil {
+			return false
+		}
+		old, next, e := decodeJournal(data, n.lease)
+		if e != nil {
+			return false
+		}
+		state := classify(cur, old, next)
+		if state == stateAmbiguous {
+			return false
+		}
+		if state == stateTorn {
+			cur = next
+		}
+	}
+	return found
+}
