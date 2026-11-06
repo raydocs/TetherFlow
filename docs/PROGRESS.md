@@ -84,3 +84,6 @@ Sonnet未修改生产代码：高负载下复现origin自身ENOBUFS/EPIPE及EOF�
 
 ## Windows健康修复集成验证中
 已集成48b3731：客户端已FIN/结束且有下行字节后上游错误按teardown分类，新增真实RST/脚本CloseWrite回归旧码失败；这是不透明TLS启发式，可能掩盖客户端半关闭后真实上游reset健康事件，不等于证明响应完整。原Windows失败未本地复现，主线程race三轮/Windowsvet运行中，CI必须验证。低并发新增origin.Write错误断言的跨语言10轮全部通过，无忽略失败；旧审查EOF历史根因仍未被证明，只记录极端负载ENOBUFS证据。
+
+## Windows健康修复主线程回归完成
+主线程steamaccel race三轮通过54.950s，Windowsvet通过，不能代替Windows实际运行。CI42209137137（1029aa0）仍运行中，需其确认原DNS/TLS健康回归及后续R14 E2E/真实launcher包；未开始新轮审查以免把执行失败漏入最终冻结。R15文档任务自动完成通知待收，不轮询。
