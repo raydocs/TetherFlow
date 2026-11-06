@@ -33,3 +33,6 @@ Opus计划docs/STEAM-RELIABILITY-PLAN.md已集成；新分支wip/steam-reliabili
 
 ## R4 集成验证中
 已审查并集成3daf1f2：实际peer公网校验、字面私网预拒绝、协议2 info、共享IP向量。PublicAddress保留于HTTPProtocol.swift以兼容显式host编译文件列表（布局偏差，不改功能）。工作者只记录info/legacy禁用后失败，未证明peer/private两个测试在旧码失败，不能外推。主线程Swift全套/Go向量/跨语言3轮已启动；R8手机RAM token暂停恢复与listener重启交Sonnet独立worktree。R5仍在进行，未轮询。
+
+## R5 集成验证中、R6启动
+已检查R5恢复日志脱敏/重试预算/端口持有证明并集成；主线程cmd race三轮及Windows vet正在执行。Windows强杀/ACL/锁重试尚未实际验证，必须CI。R6单路对照模式和HTTP实时字节交Sonnet独立worktree（steam-sonnet-r6-20261106）；与R8手机会话不重叠；R7需等R6以避免acquire冲突。
