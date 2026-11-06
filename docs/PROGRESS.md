@@ -78,3 +78,6 @@ steamaccel race三轮通过（54.983秒）、Windowsvet通过；跨语言10轮�
 
 ## R14集成验证中、恢复门槛修正
 已集成ba8e8db的WindowsE2E/提取包真实launcher行为脚本，仅WindowsGitHubActions显式开关执行；本机仅编译，未记CI通过。恢复顺序修复首次完整cmd测试发现doctor过宽WARN让无效journal掩盖外来修改，已保留旧断言并改为read-only Recoverable识别合法journal后才降WARN；不重写/删除journal。回归进行中，阻断未解除。R15文档须等最后行为和CI确定再写。
+
+## EOF调查与新Windows失败
+Sonnet未修改生产代码：高负载下复现origin自身ENOBUFS/EPIPE及EOF关联，不能证明旧审查失败同因；主线程给origin.Write增加错误/短写断言（不忽略失败/不跳过），低并发跨语言10轮进行中。恢复门槛全库+cmd回归已通过。新CI42207422505失败于TestTLSHomeDNSFailureUsesPhone：已收927字节但Phone.Errors1，E2E尚未执行；专项Sonnet调查Windows健康误分类（steam-windows-health-failure-20261106），不得削弱断言。R1审查仍block，R2待此与E2E结果。

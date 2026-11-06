@@ -55,7 +55,10 @@ func testGoRelayThroughSwift(t *testing.T, native bool) {
 			f.Flush()
 		}
 		time.Sleep(15 * time.Millisecond)
-		_, _ = w.Write(payload)
+		n, writeErr := w.Write(payload)
+		if writeErr != nil || n != len(payload) {
+			t.Errorf("fixture origin write failed: wrote %d/%d bytes: %v (run remains FAILED)", n, len(payload), writeErr)
+		}
 	}))
 	defer origin.Close()
 	originTLS := httptest.NewTLSServer(origin.Config.Handler)
