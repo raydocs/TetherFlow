@@ -311,3 +311,23 @@ func TestUpdateKeepsFileIdentity(t *testing.T) {
 		}
 	}
 }
+
+func TestRecoverOnlyRepairsTornJournalWithoutChangingLease(t *testing.T) {
+	_, p := writeHosts(t, crashBase)
+	next, err := Rewrite([]byte(crashBase), "192.168.1.5", lease)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plantJournal(t, p, lease, crashBase, string(next))
+	if err = os.WriteFile(p, next[:len(next)/2], 0600); err != nil {
+		t.Fatal(err)
+	}
+	// This truncation is a recognized prefix when the pre-image is shorter.
+	if err = Recover(p); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(p)
+	if err != nil || !bytes.Equal(got, next) {
+		t.Fatalf("repair mismatch %v", err)
+	}
+}

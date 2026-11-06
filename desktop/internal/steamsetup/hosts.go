@@ -293,3 +293,31 @@ func Inspect(path string) (Inspection, error) {
 	}
 	return in, nil
 }
+
+// Recover resolves recognized journals under the hosts lock without installing or removing a lease.
+func Recover(path string) error {
+	canon, err := canonicalHostsPath(path)
+	if err != nil {
+		return err
+	}
+	if err = checkDirTrusted(filepath.Dir(canon)); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(canon, os.O_RDWR, 0)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err = lockFile(f); err != nil {
+		return err
+	}
+	defer unlockFile(f)
+	cur, err := readLocked(f)
+	if err != nil {
+		return err
+	}
+	if cur, err = recoverJournals(f, canon, cur); err != nil {
+		return err
+	}
+	return nil
+}

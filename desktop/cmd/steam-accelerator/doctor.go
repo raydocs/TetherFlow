@@ -277,7 +277,7 @@ func hostsCheck(env doctorEnv) doctorCheck {
 			c.Status = status
 		}
 	}
-	if in.Malformed {
+	if in.Malformed && len(in.PendingJournals) == 0 {
 		raise(statusFail)
 		details = append(details, "a TetherFlow block is malformed; inspect the hosts file by hand, it is not touched")
 	}

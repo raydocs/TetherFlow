@@ -113,6 +113,12 @@ func cleanupHosts(ctx context.Context, path, lease string, budget time.Duration,
 // caller holds port 80 on homeIP, which proves the old owner is gone, and only for an
 // entry whose address equals homeIP. Anything else is refused with the exact command.
 func reclaimStale(path, homeIP string, held net.Listener) error {
+	// Recover before Inspect: a torn but journaled block is not a malformed foreign edit.
+	if tcp, ok := heldAddr(held); ok && net.ParseIP(homeIP) != nil && tcp.IP.Equal(net.ParseIP(homeIP)) && fmt.Sprint(tcp.Port) == reclaimProofPort {
+		if err := steamsetup.Recover(path); err != nil {
+			return err
+		}
+	}
 	in, err := steamsetup.Inspect(path)
 	if err != nil {
 		return err

@@ -383,3 +383,17 @@ func TestListPhonesSerialRoundTripsToSelectUSB(t *testing.T) {
 		t.Errorf("link must be labelled metadata:\n%s", out.String())
 	}
 }
+
+func TestDoctorJournaledTornBlockDefersToLockedRecovery(t *testing.T) {
+	env := doctorEnv{hostsPath: func() (string, error) { return "fixture-hosts", nil }, inspect: func(string) (steamsetup.Inspection, error) {
+		return steamsetup.Inspection{Malformed: true, PendingJournals: []string{"fixture-journal"}}, nil
+	}}
+	result := hostsCheck(env)
+	if result.Status != statusWarn {
+		t.Fatalf("journal recovery blocked by doctor: %+v", result)
+	}
+	env.inspect = func(string) (steamsetup.Inspection, error) { return steamsetup.Inspection{Malformed: true}, nil }
+	if hostsCheck(env).Status != statusFail {
+		t.Fatal("unjournaled malformed block must remain blocked")
+	}
+}

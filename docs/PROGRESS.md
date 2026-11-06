@@ -72,3 +72,6 @@ steamaccel race三轮通过（54.983秒）、Windowsvet通过；跨语言10轮�
 
 ## 独立审查R1阻断，禁止交付
 审查报告P2：refresh未验protocol2、startup Inspect先于journal恢复、verify-app strings|grep-q SIGPIPE漏检；P3首读n>0+EOF误记无响应；另跨语言9EOF/计数不符复现后重跑通过，未定位不得关闭。主线程已开始修refresh复用完整probeStartup、strings输出落临时文件并检查生产者错误、EOF判断计入本次n，测试进行中。startup journal/doctor协调尚未修复。跨语言EOF专项交Sonnet独立worktree（steam-eof-investigation-20261106），保留期望字节且不重试掩盖。R14仍独立Windows测试；最终新R2覆盖全部delta。
+
+## 审查恢复顺序修复验证中
+主线程增加steamsetup.Recover仅持锁修复日志不改lease；reclaim在持有正确端口证明后先Recover再Inspect，doctor对journal存在的torn状态给WARN且保持只读，实际恢复仍歧义即拒绝。新增库层repair-only和doctor门槛回归；测试运行中。此前三项小修Go/Python回归通过，但最终R2仍须复核，不关闭EOF阻断。
