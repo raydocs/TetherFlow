@@ -30,11 +30,23 @@ go func() { err := forwarder.Serve(ctx, listener); _ = err }()
 - `Client.ListUSB(context.Context) ([]Device, error)` and
   `Client.Connect(context.Context, Device, uint16) (net.Conn, error)` are concurrency-safe.
   Connect rechecks the exact USB ID and normalized serial on its control connection,
-  then sends Connect. A zero port is invalid. The returned stream preserves bytes
+  then sends Connect (unchanged by `ConnectSerial`). A zero port is invalid. The returned stream preserves bytes
   arriving with the Result response. Context/deadline cover the entire handshake;
   after success the raw stream deadline is cleared and the caller owns its lifetime.
-- `New(*Client, Device) (*Forwarder, error)` pins the selected USB device and port
-  **8283**. `Forwarder.Serve(context.Context, net.Listener) error` runs once and owns
+- `Client.ConnectSerial(ctx, serial, port) (net.Conn, Device, error)` lists devices and
+  sends Connect on one control connection, using the DeviceID from that list (none is
+  cached). It connects only when exactly one `USB` entry has the normalized serial.
+  Another serial, a Network-only entry, or an empty serial: `ErrDeviceNotFound`
+  (an empty serial does not even dial). Two USB entries with the serial:
+  `ErrSelectionRequired`. No Connect is sent in those cases; there is no retry, no
+  "any phone" scan and no Wi-Fi sync path. The serial is an identifier, not a
+  credential: pairing and physical USB access are the trust boundary.
+- `New(*Client, Device) (*Forwarder, error)` pins the selected device's **normalized
+  serial** (not its DeviceID) and port **8283**. Each accepted connection uses
+  `ConnectSerial`, so the same phone re-enumerated under a new DeviceID is reached;
+  a different serial never is. `Forwarder.Status() ForwarderStatus{Serial; LastDeviceID
+  uint32; Reenumerations, ConnectFailures uint64}` reports the last DeviceID used and
+  cumulative counts since `New`. `Forwarder.Serve(context.Context, net.Listener) error` runs once and owns
   the listener after entry (including validation failure); non-loopback peers are skipped.
   At most 32 accepted/dialing/relaying sessions; each direction uses a bounded 32 KiB
   buffer with TCP/Unix half-close and backpressure. Idle means no successful read/write

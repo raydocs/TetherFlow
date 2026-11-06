@@ -519,11 +519,11 @@ func TestForwarderBlockedWriteTeardown(t *testing.T) {
 func TestForwarderDoesNotSwitchAfterDisconnect(t *testing.T) {
 	var sessions atomic.Int32
 	client, server := startFake(t, func(c net.Conn) error {
-		id := uint32(7)
+		serial, id := "abcdef", uint32(7)
 		if sessions.Add(1) > 1 {
-			id = 8
+			serial, id = "other", 8
 		}
-		if e := replyList(c, deviceXML(id, "abcdef", "USB")); e != nil {
+		if e := replyList(c, deviceXML(id, serial, "USB")); e != nil {
 			return e
 		}
 		if id == 8 {
@@ -558,4 +558,86 @@ func TestForwarderDoesNotSwitchAfterDisconnect(t *testing.T) {
 		t.Fatalf("unexpected fallback: %q %v", got, e)
 	}
 	server.check(t)
+}
+
+// The phone re-enumerates under a new DeviceID with the same serial: the
+// second accepted connection must reach it through a fresh list.
+func TestForwarderReconnectsSameSerialNewID(t *testing.T) {
+	var sessions atomic.Int32
+	client, server := startFake(t, func(c net.Conn) error {
+		id := uint32(7)
+		if sessions.Add(1) > 1 {
+			id = 8
+		}
+		if e := replyList(c, deviceXML(id, "AB-CD-EF", "USB")); e != nil {
+			return e
+		}
+		tag, e := expectConnectID(c, id)
+		if e != nil {
+			return e
+		}
+		return writeFull(c, append(packet(resultXML(0), tag), []byte(fmt.Sprintf("id%d", id))...))
+	})
+	_, l, _ := startForwarder(t, client)
+	for _, want := range []string{"id7", "id8"} {
+		conn := dialForwarder(t, l)
+		if e := conn.CloseWrite(); e != nil {
+			t.Fatal(e)
+		}
+		got, e := io.ReadAll(conn)
+		conn.Close()
+		if e != nil || string(got) != want {
+			t.Fatalf("got %q err %v, want %q", got, e, want)
+		}
+	}
+	server.check(t)
+}
+
+func TestForwarderStatusCountsReenumeration(t *testing.T) {
+	var sessions atomic.Int32
+	client, server := startFake(t, func(c net.Conn) error {
+		n := sessions.Add(1)
+		id, serial := uint32(7), "abcdef"
+		switch n {
+		case 2, 3:
+			id = 8
+		case 4:
+			serial = "other" // phone absent: only another serial is listed
+		}
+		if e := replyList(c, deviceXML(id, serial, "USB")); e != nil {
+			return e
+		}
+		if n == 4 {
+			var b [1]byte
+			if k, _ := c.Read(b[:]); k != 0 {
+				return errors.New("Connect sent for another serial")
+			}
+			return nil
+		}
+		tag, e := expectConnectID(c, id)
+		if e != nil {
+			return e
+		}
+		return writeFull(c, packet(resultXML(0), tag))
+	})
+	f, l, _ := startForwarder(t, client)
+	if st := f.Status(); st.Serial != "abcdef" || st.LastDeviceID != 7 || st.Reenumerations != 0 || st.ConnectFailures != 0 {
+		t.Fatalf("initial %+v", st)
+	}
+	for i := 0; i < 4; i++ {
+		conn := dialForwarder(t, l)
+		_ = conn.CloseWrite()
+		_, _ = io.ReadAll(conn)
+		conn.Close()
+		// The relay finishes after the local socket closes; wait for the fake session.
+		deadline := time.Now().Add(2 * time.Second)
+		for sessions.Load() < int32(i+1) && time.Now().Before(deadline) {
+			time.Sleep(time.Millisecond)
+		}
+	}
+	server.check(t)
+	// Status is updated before relay starts, so all four attempts are recorded.
+	if st := f.Status(); st.Serial != "abcdef" || st.LastDeviceID != 8 || st.Reenumerations != 1 || st.ConnectFailures != 1 {
+		t.Fatalf("final %+v", st)
+	}
 }

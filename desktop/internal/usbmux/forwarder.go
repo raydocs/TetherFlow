@@ -26,8 +26,18 @@ type Forwarder struct {
 	listener        net.Listener
 	cancel          context.CancelFunc
 	active          map[net.Conn]struct{}
+	status          ForwarderStatus
 	// Fixed public limits; private durations permit focused lifecycle tests.
 	idle, lifetime time.Duration
+}
+
+// ForwarderStatus reports the startup serial and how its DeviceID has moved.
+// Counts are cumulative since New; the DeviceID is never an identity.
+type ForwarderStatus struct {
+	Serial          string
+	LastDeviceID    uint32
+	Reenumerations  uint64
+	ConnectFailures uint64
 }
 
 func New(client *Client, device Device) (*Forwarder, error) {
@@ -38,7 +48,24 @@ func New(client *Client, device Device) (*Forwarder, error) {
 		return nil, ErrDeviceNotFound
 	}
 	device.Serial = normalizeSerial(device.Serial)
-	return &Forwarder{client: client, device: device, active: make(map[net.Conn]struct{}), idle: IdleTimeout, lifetime: MaxLifetime}, nil
+	return &Forwarder{client: client, device: device, status: ForwarderStatus{Serial: device.Serial, LastDeviceID: device.DeviceID}, active: make(map[net.Conn]struct{}), idle: IdleTimeout, lifetime: MaxLifetime}, nil
+}
+func (f *Forwarder) Status() ForwarderStatus {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.status
+}
+func (f *Forwarder) noteConnect(d Device, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err != nil {
+		f.status.ConnectFailures++
+		return
+	}
+	if d.DeviceID != f.status.LastDeviceID {
+		f.status.Reenumerations++
+		f.status.LastDeviceID = d.DeviceID
+	}
 }
 func loopbackAddress(a net.Addr) bool {
 	addr, ok := a.(*net.TCPAddr)
@@ -145,7 +172,8 @@ func (f *Forwarder) serveConn(parent context.Context, local net.Conn) {
 	// Cancellation covers both a pending handshake and either blocked relay side.
 	stopLocal := context.AfterFunc(ctx, func() { local.Close() })
 	defer stopLocal()
-	remote, e := f.client.Connect(ctx, f.device, ForwardPort)
+	remote, selected, e := f.client.ConnectSerial(ctx, f.device.Serial, ForwardPort)
+	f.noteConnect(selected, e)
 	if e != nil {
 		return
 	}

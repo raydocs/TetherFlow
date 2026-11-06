@@ -319,40 +319,64 @@ func (s *session) list() ([]Device, error) {
 	}
 	return devices, nil
 }
-func (c *Client) Connect(ctx context.Context, device Device, port uint16) (conn net.Conn, err error) {
+func (c *Client) Connect(ctx context.Context, device Device, port uint16) (net.Conn, error) {
 	if !validDevice(device) {
 		return nil, ErrDeviceNotFound
 	}
+	conn, _, err := c.connect(ctx, port, func(devices []Device) (Device, error) {
+		return SelectUSB(devices, device.DeviceID, device.Serial)
+	})
+	return conn, err
+}
+
+// ConnectSerial connects to the one USB device with this normalized serial,
+// using the DeviceID from a list taken on the same control connection. Another
+// serial, a network-only entry or an empty serial returns ErrDeviceNotFound;
+// two USB entries with the serial return ErrSelectionRequired. No Connect is
+// sent in any of those cases.
+func (c *Client) ConnectSerial(ctx context.Context, serial string, port uint16) (net.Conn, Device, error) {
+	serial = normalizeSerial(serial)
+	if serial == "" {
+		return nil, Device{}, ErrDeviceNotFound
+	}
+	return c.connect(ctx, port, func(devices []Device) (Device, error) {
+		return SelectUSB(devices, 0, serial)
+	})
+}
+
+func (c *Client) connect(ctx context.Context, port uint16, pick func([]Device) (Device, error)) (conn net.Conn, selected Device, err error) {
 	if port == 0 {
-		return nil, errors.New("usbmux port must be nonzero")
+		return nil, Device{}, errors.New("usbmux port must be nonzero")
 	}
 	s, finish, e := c.open(ctx)
 	if e != nil {
-		return nil, e
+		return nil, Device{}, e
 	}
 	keep := false
 	defer func() {
 		if e := finish(keep); e != nil {
 			conn = nil
+			selected = Device{}
 			err = e
 		}
 	}()
 	devices, e := s.list()
 	if e != nil {
-		return nil, e
+		return nil, Device{}, e
 	}
-	if _, e = SelectUSB(devices, device.DeviceID, device.Serial); e != nil {
-		return nil, e
+	device, e := pick(devices)
+	if e != nil {
+		return nil, Device{}, e
 	}
 	// plist PortNumber contains the 16-bit network-byte-order integer.
 	networkPort := (port&255)<<8 | port>>8
 	m, e := s.request("Connect", fmt.Sprintf("<key>DeviceID</key><integer>%d</integer><key>PortNumber</key><integer>%d</integer>", device.DeviceID, networkPort))
 	if e != nil {
-		return nil, e
+		return nil, Device{}, e
 	}
 	if m["MessageType"] != "Result" {
-		return nil, protocol("Connect requires Result")
+		return nil, Device{}, protocol("Connect requires Result")
 	}
 	keep = true
-	return s, nil
+	return s, device, nil
 }

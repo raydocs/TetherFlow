@@ -61,12 +61,13 @@ func replyList(c net.Conn, entries ...string) error {
 	}
 	return writeFull(c, packet(listXML(entries...), tag))
 }
-func expectConnect(c net.Conn) (uint32, error) {
+func expectConnect(c net.Conn) (uint32, error) { return expectConnectID(c, 7) }
+func expectConnectID(c net.Conn, id uint32) (uint32, error) {
 	m, tag, e := readRequest(c)
 	if e != nil {
 		return 0, e
 	}
-	if m["MessageType"] != "Connect" || m["DeviceID"] != uint64(7) || m["PortNumber"] != uint64(0x5b20) {
+	if m["MessageType"] != "Connect" || m["DeviceID"] != uint64(id) || m["PortNumber"] != uint64(0x5b20) {
 		return 0, fmt.Errorf("wrong Connect: %v", m)
 	}
 	return tag, nil
@@ -470,4 +471,105 @@ func TestClientConcurrent(t *testing.T) {
 		t.Fatal("concurrent failure")
 	}
 	f.check(t)
+}
+
+// connectSerialFake serves one ListDevices and, if want != 0, expects Connect for that ID.
+func connectSerialFake(t *testing.T, want uint32, entries ...string) (*Client, *fakeMux) {
+	return startFake(t, func(c net.Conn) error {
+		if e := replyList(c, entries...); e != nil {
+			return e
+		}
+		if want == 0 {
+			var b [1]byte
+			if n, _ := c.Read(b[:]); n != 0 {
+				return fmt.Errorf("sent Connect when none was allowed")
+			}
+			return nil
+		}
+		tag, e := expectConnectID(c, want)
+		if e != nil {
+			return e
+		}
+		return writeFull(c, append(packet(resultXML(0), tag), []byte("ok")...))
+	})
+}
+func TestConnectSerialUsesFreshIDOnSameControlConn(t *testing.T) {
+	var accepted atomic.Int32
+	client, f := startFake(t, func(c net.Conn) error {
+		accepted.Add(1)
+		if e := replyList(c, deviceXML(42, "AB-CD-EF", "USB")); e != nil {
+			return e
+		}
+		tag, e := expectConnectID(c, 42)
+		if e != nil {
+			return e
+		}
+		return writeFull(c, append(packet(resultXML(0), tag), []byte("ok")...))
+	})
+	conn, d, e := client.ConnectSerial(boundedContext(t), " Ab-Cd-Ef ", 8283)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer conn.Close()
+	got, _ := io.ReadAll(conn)
+	if string(got) != "ok" || d.DeviceID != 42 || d.Serial != "abcdef" || d.ConnectionType != "USB" {
+		t.Fatalf("%q %+v", got, d)
+	}
+	if accepted.Load() != 1 {
+		t.Fatalf("control connections: %d", accepted.Load())
+	}
+	f.check(t)
+}
+func TestConnectSerialRefusesOtherSerialAndNetworkEntry(t *testing.T) {
+	for _, entries := range [][]string{
+		{deviceXML(7, "other", "USB")},
+		{deviceXML(7, "abcdef", "Network")},
+		{deviceXML(7, "other", "USB"), deviceXML(9, "abcdef", "Network")},
+		{},
+	} {
+		client, f := connectSerialFake(t, 0, entries...)
+		conn, d, e := client.ConnectSerial(boundedContext(t), "abcdef", 8283)
+		if !errors.Is(e, ErrDeviceNotFound) || conn != nil || d != (Device{}) {
+			t.Fatalf("%v: %v %v %+v", entries, e, conn, d)
+		}
+		f.check(t)
+	}
+}
+func TestConnectSerialSelectsUSBWhenSameSerialAlsoNetwork(t *testing.T) {
+	client, f := connectSerialFake(t, 9, deviceXML(8, "abcdef", "Network"), deviceXML(9, "abcdef", "USB"))
+	conn, d, e := client.ConnectSerial(boundedContext(t), "abcdef", 8283)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer conn.Close()
+	if d.DeviceID != 9 || d.ConnectionType != "USB" {
+		t.Fatalf("%+v", d)
+	}
+	f.check(t)
+}
+func TestConnectSerialDuplicateUSBEntriesFailClosed(t *testing.T) {
+	client, f := connectSerialFake(t, 0, deviceXML(8, "abcdef", "USB"), deviceXML(9, "AB-CDEF", "USB"))
+	conn, _, e := client.ConnectSerial(boundedContext(t), "abcdef", 8283)
+	if !errors.Is(e, ErrSelectionRequired) || conn != nil {
+		t.Fatalf("%v %v", e, conn)
+	}
+	f.check(t)
+}
+func TestConnectSerialEmptySerialNeverDials(t *testing.T) {
+	var dials atomic.Int32
+	client, e := NewClient(Config{Network: "tcp", Address: "127.0.0.1:27015", DialContext: func(context.Context, string, string) (net.Conn, error) {
+		dials.Add(1)
+		return nil, errors.New("must not dial")
+	}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, serial := range []string{"", " - ", "\t"} {
+		if _, _, e := client.ConnectSerial(boundedContext(t), serial, 8283); !errors.Is(e, ErrDeviceNotFound) {
+			t.Fatalf("%q: %v", serial, e)
+		}
+	}
+	if dials.Load() != 0 {
+		t.Fatalf("dialed %d times", dials.Load())
+	}
 }
