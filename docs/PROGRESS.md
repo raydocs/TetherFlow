@@ -21,3 +21,6 @@ Opus计划docs/STEAM-RELIABILITY-PLAN.md已集成；新分支wip/steam-reliabili
 
 ## R1 集成（2026-11-06）
 已检查五文件diff并cherry-pick为6c66b6c。同serial新DeviceID重连，Client.Connect保留严格ID语义；ConnectFailures包含关闭/取消，不应当作健康失败统计。主线程执行usbmux race三轮与Windows vet（结果见线程）。R3传输健康/HTTP停滞超时已交Sonnet独立worktree，clientRequestId steam-sonnet-r3-20261106，完成自动唤醒。R2、R4及后续任务仍未实施。
+
+## R3 集成验证中
+已检查并集成4ff204a：HTTP body无进展超时、TLS首因健康分类；旧idle测试改为按新契约验证upload stall冷却，其他取消/keepalive健康断言保留。主线程race三轮、Windows vet及现有跨语言脚本已启动，结果未出前不记通过。工作者称无跨语言对应不准确：仓库integration/verify-host.sh可回归真实Swift+Go传输，主线程补跑。R4 iOS实际peer公网策略与协议2交Sonnet独立worktree，完成自动唤醒。
