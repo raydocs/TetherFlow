@@ -69,3 +69,6 @@ steamaccel race三轮通过（54.983秒）、Windowsvet通过；跨语言10轮�
 
 ## 整合回归通过、可靠性独立审查启动
 主线程四包一起race三轮全部通过：usbmux3.968s/steamaccel55.193s/steamsetup6.518s/cmd11.371s，未重现工作者先前未定位并行失败，但不据此断言历史根因已解决。CI42203841177（0cccceb）全绿，最新eefc386 CI进行中。冻结eefc386对530d8ff的生产可靠性diff发起独立Codex xhigh/worktree R1审查（steam-reliability-review-r1-20261106），R14仅Windows测试/打包并行无源代码重叠；最终R2须覆盖新增delta。无真实速度证明。
+
+## 独立审查R1阻断，禁止交付
+审查报告P2：refresh未验protocol2、startup Inspect先于journal恢复、verify-app strings|grep-q SIGPIPE漏检；P3首读n>0+EOF误记无响应；另跨语言9EOF/计数不符复现后重跑通过，未定位不得关闭。主线程已开始修refresh复用完整probeStartup、strings输出落临时文件并检查生产者错误、EOF判断计入本次n，测试进行中。startup journal/doctor协调尚未修复。跨语言EOF专项交Sonnet独立worktree（steam-eof-investigation-20261106），保留期望字节且不重试掩盖。R14仍独立Windows测试；最终新R2覆盖全部delta。

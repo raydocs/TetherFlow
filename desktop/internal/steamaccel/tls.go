@@ -418,7 +418,7 @@ func (c activeTLSConn) Read(p []byte) (int, error) {
 		c.activity.touch(c.client)
 	}
 	if err == io.EOF {
-		if !c.client && c.pipe.down.Load() == 0 {
+		if !c.client && n == 0 && c.pipe.down.Load() == 0 {
 			c.pipe.fail(causeUpstream) // upstream closed without answering
 		}
 	} else if err != nil {

@@ -56,9 +56,15 @@ print(" ".join(sorted(k for k in d if k not in allowed)))' "$signed")
 fi
 
 # 4. No test-only code in the shipped binary.
-if strings -a "$app/$exe" | grep -Eq 'USBHostFixture|TEST-ONLY'; then
+scan=$(mktemp "${TMPDIR:-/tmp}/tf-strings.XXXXXX")
+if ! strings -a "$app/$exe" > "$scan"; then
+  bad 'strings failed while inspecting binary'
+fi
+if grep -E 'USBHostFixture|TEST-ONLY' "$scan" > /dev/null; then
   bad 'binary contains USBHostFixture or TEST-ONLY strings'
 fi
+
+rm -f "$scan"
 
 # 5. The token is never persisted: no storage APIs in the app sources.
 hits=$(grep -rEn 'UserDefaults|@AppStorage|SecItemAdd|SecItemUpdate|FileManager|FileHandle|createFile|\.write\(to|\.write\(toFile|NSKeyedArchiver|fopen|NSUbiquitousKeyValueStore' \

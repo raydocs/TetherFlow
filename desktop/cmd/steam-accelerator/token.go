@@ -146,7 +146,7 @@ var errPhoneRejected = errors.New("phone rejected the session token")
 func probePhone(ctx context.Context, addr, token string) error {
 	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
-	_, err := checkPhone(ctx, addr, token, probeBytes)
+	err := probeStartup(ctx, addr, token)
 	return asRejection(err)
 }
 
