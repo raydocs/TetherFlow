@@ -45,3 +45,6 @@ Opus计划docs/STEAM-RELIABILITY-PLAN.md已集成；新分支wip/steam-reliabili
 
 ## R7集成验证中、R9启动
 已核对generation锁/407不冷却/旧generation隔离并集成R7；第二个旧test407改502保留原断言，符合新认证语义。Config初始token仍宽松（兼容既有库调用），CLI R10必须Normalize严格输入；已在途旧认证可能再发一次，非重复新调度。主线程race/Windowsvet/跨语言3轮执行中。R8主线程SwiftRelease41项及跨语言3轮通过。R9独立DNS与公平IP预算交Sonnet独立worktree，R13交付脚本并行；不修改既有Android。
+
+## R13集成验证中、R10启动
+已集成4c7ecaa Debug/Release产物检查与用户主动签名脚本；附加TetherFlow.xcconfig为可选Signing.xcconfig的非秘密包装，未配置Team/账号。工作者本机只有Debug构建+验证通过，Release目的地发现失败，不能记通过；主线程19项Python/脚本syntax/跨语言优化版本回归进行中。R10隐藏stdin/移除token临时文件/探测后刷新交Sonnet独立worktree，与R9 core独立。最终Release须CI。
