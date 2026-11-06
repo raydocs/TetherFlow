@@ -2,6 +2,7 @@
 [CmdletBinding()]
 param(
     [string]$HomeIP,
+    [ValidateSet('Dual', 'HomeOnly', 'PhoneOnly')][string]$Mode = 'Dual',
     [string]$Executable = "$PSScriptRoot\tetherflow-steam-accelerator.exe",
     [string]$IProxy = '',
     [string]$DeviceUDID,
@@ -13,6 +14,11 @@ param(
     [string]$AllowedHosts
 )
 $ErrorActionPreference = 'Stop'
+$uplinkMode = @{ Dual = 'dual'; HomeOnly = 'home'; PhoneOnly = 'phone' }[$Mode]
+$usePhone = $Mode -ne 'HomeOnly'
+if (-not $usePhone -and ($CheckPhoneOnly -or $IProxy -or $UseExistingTunnel -or $DeviceUDID)) {
+    throw '-Mode HomeOnly does not use the iPhone: remove -CheckPhoneOnly, -IProxy, -UseExistingTunnel and -DeviceUDID.'
+}
 if (-not (Test-Path -LiteralPath $Executable -PathType Leaf)) { throw "Missing executable: $Executable" }
 if (-not $CheckPhoneOnly) {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -26,7 +32,7 @@ if (-not $CheckPhoneOnly) {
 }
 $tunnel = $null
 try {
-    if ($IProxy -and -not $UseExistingTunnel) {
+    if ($usePhone -and $IProxy -and -not $UseExistingTunnel) {
         $iproxyCommand = Get-Command $IProxy -ErrorAction Stop
         $iproxyArgs = @('-l', '-s', '127.0.0.1')
         if ($DeviceUDID) {
@@ -38,17 +44,22 @@ try {
         Start-Sleep -Seconds 1
         if ($tunnel.HasExited) { throw 'iproxy exited. Check Apple Devices, pairing, one attached iPhone, and iproxy --help syntax.' }
     }
-    Write-Host 'On iPhone: open TetherFlow, tap Start, keep it foreground. The accelerator asks for the code below, with hidden input.'
+    if ($usePhone) {
+        Write-Host 'On iPhone: open TetherFlow, tap Start, keep it foreground. The accelerator asks for the code below, with hidden input.'
+    } else {
+        Write-Host 'Home-only mode: the iPhone, USB and the session code are not used.'
+    }
     $cliArgs = @()
     if ($UseExistingTunnel -or $IProxy) { $cliArgs += '--external-tunnel' }
     if ($DeviceUDID -and -not ($UseExistingTunnel -or $IProxy)) { $cliArgs += @('--device-udid', $DeviceUDID) }
     if ($CheckPhoneOnly) {
         $cliArgs += '--check-phone'
     } else {
-        $cliArgs += @('--home-ip', $HomeIP, '--enable-steam', '--home-weight', "$HomeWeight", '--phone-weight', "$PhoneWeight", '--report', "$PSScriptRoot\tetherflow-status.json")
+        # One report file per mode, so a home-only baseline never overwrites a dual run.
+        $cliArgs += @('--uplink-mode', $uplinkMode, '--home-ip', $HomeIP, '--enable-steam', '--home-weight', "$HomeWeight", '--phone-weight', "$PhoneWeight", '--report', "$PSScriptRoot\tetherflow-status-$uplinkMode.json")
         if ($HttpOnly) { $cliArgs += '--http-only' }
         if ($AllowedHosts) { $cliArgs += @('--allow-hosts', $AllowedHosts) }
-        Write-Host 'After startup succeeds, fully exit and reopen Steam once. Download a game and watch both path counters.'
+        Write-Host 'After startup succeeds, fully exit and reopen Steam once. Download a game and watch the path counters and concurrent_seconds in the report.'
         Write-Host 'No relay traffic means Steam is NOT using this path. Do not mistake configuration for acceleration.'
         Write-Host 'Stop with Ctrl+C. The launcher/guardian removes only its own Steam discovery entry.'
     }

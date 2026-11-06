@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -40,7 +39,8 @@ func run() error {
 	enable := flag.Bool("enable-steam", false, "explicitly install temporary Steam discovery hosts entry (Windows administrator)")
 	benchmark := flag.Bool("check-phone", false, "verify 128 MiB USB application-path payload and print Mbps; not a cellular test")
 	doctor := flag.Bool("doctor", false, "print local IPv4 interfaces and prerequisites without changing settings")
-	report := flag.String("report", "tetherflow-status.json", "local JSON diagnostic summary (no token or download URLs)")
+	uplinkMode := flag.String("uplink-mode", "dual", "dual (home and phone), home (no phone, USB or token) or phone (never falls back to home)")
+	report := flag.String("report", "", "local JSON diagnostic summary, no token or download URLs (default tetherflow-status-<uplink-mode>.json)")
 	homeWeight := flag.Int("home-weight", 1, "relative home network capacity")
 	phoneWeight := flag.Int("phone-weight", 4, "relative phone network capacity")
 	extraHosts := flag.String("allow-hosts", "", "comma-separated explicit CDN suffixes; replaces default allowlist")
@@ -51,6 +51,23 @@ func run() error {
 	recoveryLog := flag.String("recovery-log", "", "file that receives hosts-cleanup failures with the lease (default: next to --report)")
 	recoverLease := flag.String("recover-lease", "", "remove only a matching stale session entry; does not start relay")
 	flag.Parse()
+	mode, err := parseUplinkMode(*uplinkMode)
+	if err != nil {
+		return err
+	}
+	explicit := map[string]bool{}
+	flag.Visit(func(f *flag.Flag) { explicit[f.Name] = true })
+	if !explicit["report"] {
+		*report = defaultReportPath(mode)
+	}
+	usePhone := mode != steamaccel.UplinkHomeOnly
+	if !usePhone {
+		for _, name := range []string{"check-phone", "external-tunnel", "device-udid", "phone-proxy"} {
+			if explicit[name] {
+				return fmt.Errorf("--%s needs the phone, but --uplink-mode is home", name)
+			}
+		}
+	}
 	if *recoveryLog == "" {
 		*recoveryLog = defaultRecoveryLog(*report)
 	}
@@ -77,7 +94,7 @@ func run() error {
 			return err
 		}
 	}
-	if !*externalTunnel {
+	if usePhone && !*externalTunnel {
 		scanCtx, scanCancel := context.WithTimeout(context.Background(), 8*time.Second)
 		endpoint, cleanupTunnel, tunnelErr := startPhoneTunnel(scanCtx, *udid)
 		scanCancel()
@@ -88,28 +105,33 @@ func run() error {
 		*phone = endpoint
 	}
 	// The session token is typed into this process's own hidden stdin prompt; it is probed
-	// with the authenticated diagnostic before anything else is changed.
+	// with the authenticated diagnostic before anything else is changed. Home mode never
+	// opens USB and never asks for a token.
 	tokens := newTokenSource(os.Stdin, os.Stderr)
 	defer tokens.Close()
-	token, err := acquireStartupToken(tokens.read, func(candidate string) error {
-		return probePhone(context.Background(), *phone, candidate)
-	}, log.Printf)
-	if err != nil {
-		return err
-	}
-	if *benchmark {
-		checkCtx, checkCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		rate, checkErr := checkPhone(checkCtx, *phone, token, 128*1024*1024)
-		checkCancel()
-		if checkErr != nil {
-			return fmt.Errorf("iPhone USB application-path preflight failed; no settings changed: %w", checkErr)
+	var token string
+	if usePhone {
+		var err error
+		token, err = acquireStartupToken(tokens.read, func(candidate string) error {
+			return probePhone(context.Background(), *phone, candidate)
+		}, log.Printf)
+		if err != nil {
+			return err
 		}
-		fmt.Printf("Verified USB app-path payload: %.1f Mbps (not cellular or Steam speed)\n", rate)
-		return nil
+		if *benchmark {
+			checkCtx, checkCancel := context.WithTimeout(context.Background(), 30*time.Second)
+			rate, checkErr := checkPhone(checkCtx, *phone, token, 128*1024*1024)
+			checkCancel()
+			if checkErr != nil {
+				return fmt.Errorf("iPhone USB application-path preflight failed; no settings changed: %w", checkErr)
+			}
+			fmt.Printf("Verified USB app-path payload: %.1f Mbps (not cellular or Steam speed)\n", rate)
+			return nil
+		}
+		tokens.remember(token)
+		log.Print("Authenticated iPhone USB diagnostic passed (not a cellular speed test).")
 	}
-	tokens.remember(token)
-	log.Print("Authenticated iPhone USB diagnostic passed (not a cellular speed test).")
-	cfg := steamaccel.Config{HomeIPv4: *home, AllowHomePeer: true, PhoneProxyAddr: *phone, PhoneToken: token, HomeWeight: *homeWeight, PhoneWeight: *phoneWeight}
+	cfg := steamaccel.Config{HomeIPv4: *home, AllowHomePeer: true, PhoneProxyAddr: *phone, PhoneToken: token, Uplinks: mode, HomeWeight: *homeWeight, PhoneWeight: *phoneWeight}
 	if *extraHosts != "" {
 		cfg.AllowedHosts = strings.Split(*extraHosts, ",")
 	}
@@ -189,10 +211,14 @@ func run() error {
 		log.Print("PREVIEW ONLY: Steam discovery NOT installed. Use --enable-steam after reviewing setup.")
 	}
 	log.Printf("Listening %s. Experimental Steam HTTP / opaque TLS relay; real speed and current Steam adoption UNVERIFIED.", addr)
-	log.Print("Keep iOS app foreground and USB connected. Only local PC peers allowed; no TLS decryption. No requests means Steam is NOT using this relay.")
+	if usePhone {
+		log.Print("Keep iOS app foreground and USB connected. Only local PC peers allowed; no TLS decryption. No requests means Steam is NOT using this relay.")
+	} else {
+		log.Print("Home-only mode: the phone is not used. Only local PC peers allowed; no TLS decryption. No requests means Steam is NOT using this relay.")
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if cfg.Uplinks != steamaccel.UplinkHomeOnly {
+	if usePhone {
 		// The only reader of stdin from here on. On shutdown tokens.Close (deferred above)
 		// restores console echo even if this goroutine is still blocked in a read.
 		go (&refresher{
@@ -214,37 +240,22 @@ func run() error {
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 	started := time.Now()
-	lastReport := started
-	var lastHomeBytes, lastPhoneBytes uint64
+	tracker := newConcurrencyTracker(started)
 	warnedInactive := false
 	writeStatus := func() {
 		status := relay.Snapshot()
 		now := time.Now()
-		homeMbps := intervalMbps(lastHomeBytes, status.Home.Bytes, now.Sub(lastReport))
-		phoneMbps := intervalMbps(lastPhoneBytes, status.Phone.Bytes, now.Sub(lastReport))
-		lastReport, lastHomeBytes, lastPhoneBytes = now, status.Home.Bytes, status.Phone.Bytes
+		homeMbps, phoneMbps := tracker.observe(now, status.Home.Bytes, status.Phone.Bytes)
 		if !warnedInactive && now.Sub(started) > 45*time.Second && status.Home.Requests+status.Phone.Requests == 0 {
 			warnedInactive = true
 			log.Print("NOT ACCELERATING: no content requests observed after45s. Confirm Steam cache adoption in content_log.txt; configuration alone is not success.")
 		}
-		summary := struct {
-			Started           time.Time `json:"started"`
-			Experimental      bool      `json:"experimental"`
-			SteamDiscovery    bool      `json:"steam_discovery_configured"`
-			Status            any       `json:"uplinks"`
-			HomeMbps          float64   `json:"home_interval_mbps"`
-			PhoneMbps         float64   `json:"phone_interval_mbps"`
-			BothPathsObserved bool      `json:"both_paths_observed"`
-		}{started, true, *enable, status, homeMbps, phoneMbps, status.Home.Bytes > 0 && status.Phone.Bytes > 0}
 		if *report != "" {
-			encoded, e := json.MarshalIndent(summary, "", "  ")
-			if e == nil {
-				if e = os.WriteFile(*report, append(encoded, '\n'), 0600); e != nil {
-					log.Printf("status report: %v", e)
-				}
+			if e := writeReport(*report, newStatusReport(started, *enable, mode, status, homeMbps, phoneMbps, tracker)); e != nil {
+				log.Printf("status report: %v", e)
 			}
 		}
-		log.Printf("Home %.1f Mbps (%d bytes/%d attempts), phone %.1f Mbps (%d bytes/%d attempts), combined %.1f Mbps. Interval accounting, not a verified speed gain.", homeMbps, status.Home.Bytes, status.Home.Requests, phoneMbps, status.Phone.Bytes, status.Phone.Requests, homeMbps+phoneMbps)
+		log.Printf("Home %.1f Mbps (%d bytes/%d attempts), phone %.1f Mbps (%d bytes/%d attempts), combined %.1f Mbps; both paths concurrent %.0fs. Interval accounting, not a verified speed gain.", homeMbps, status.Home.Bytes, status.Home.Requests, phoneMbps, status.Phone.Bytes, status.Phone.Requests, homeMbps+phoneMbps, tracker.concurrent.Seconds())
 	}
 	defer writeStatus()
 	for {
