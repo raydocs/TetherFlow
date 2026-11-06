@@ -18,6 +18,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"tetherflow-desktop/internal/steamaccel"
@@ -49,10 +50,14 @@ func run() error {
 	parent := flag.Int("parent", 0, "internal parent process")
 	parentHandle := flag.Uint64("parent-handle", 0, "internal inherited parent handle")
 	lease := flag.String("lease", "", "internal recovery lease")
+	recoveryLog := flag.String("recovery-log", "", "file that receives hosts-cleanup failures with the lease (default: next to --report)")
 	recoverLease := flag.String("recover-lease", "", "remove only a matching stale session entry; does not start relay")
 	flag.Parse()
+	if *recoveryLog == "" {
+		*recoveryLog = defaultRecoveryLog(*report)
+	}
 	if *guardian {
-		return guard(*parent, *lease, *parentHandle)
+		return guard(*parent, *lease, *parentHandle, *recoveryLog)
 	}
 	if *doctor {
 		return diagnose()
@@ -67,14 +72,7 @@ func run() error {
 		if e != nil {
 			return e
 		}
-		changed, e := steamsetup.Update(p, "", *recoverLease)
-		if e != nil {
-			return e
-		}
-		if changed {
-			return flushDNS()
-		}
-		return nil
+		return cleanupHosts(context.Background(), p, *recoverLease, mainCleanupBudget, flushDNS, "")
 	}
 	if !*benchmark {
 		if err := validateHome(*home); err != nil {
@@ -165,7 +163,7 @@ func run() error {
 		if e != nil {
 			return e
 		}
-		command := exec.Command(exe, "--guardian", "--parent", strconv.Itoa(os.Getpid()), "--lease", session)
+		command := exec.Command(exe, "--guardian", "--parent", strconv.Itoa(os.Getpid()), "--lease", session, "--recovery-log", *recoveryLog)
 		releaseHandle, prepErr := prepareGuardian(command)
 		if prepErr != nil {
 			return fmt.Errorf("recovery guardian setup; no hosts changes: %w", prepErr)
@@ -180,14 +178,19 @@ func run() error {
 				log.Printf("WARNING: recovery guardian exited: %v; graceful cleanup still active", e)
 			}
 		}()
+		// Both ports are held, so a stale entry for this address belongs to a dead session.
+		if e = reclaimStale(p, *home, listener); e != nil {
+			return fmt.Errorf("Steam discovery not enabled: %w", e)
+		}
 		if _, e = steamsetup.Update(p, *home, session); e != nil {
 			return fmt.Errorf("Steam discovery not enabled: %w", e)
 		}
 		cleanup = func() {
-			if _, e := steamsetup.Update(p, "", session); e != nil {
+			// Past this budget the guardian takes over once this process exits.
+			ctx, cancel := context.WithTimeout(context.Background(), mainCleanupBudget)
+			defer cancel()
+			if e := cleanupHosts(ctx, p, session, mainCleanupBudget, flushDNS, *recoveryLog, token); e != nil {
 				log.Printf("RECOVERY REQUIRED: %v; run --recover-lease %s", e, session)
-			} else if e = flushDNS(); e != nil {
-				log.Printf("DNS flush failed: %v", e)
 			}
 		}
 		defer cleanup()
@@ -201,7 +204,7 @@ func run() error {
 	}
 	log.Printf("Listening %s. Experimental Steam HTTP / opaque TLS relay; real speed and current Steam adoption UNVERIFIED.", addr)
 	log.Print("Keep iOS app foreground and USB connected. Only local PC peers allowed; no TLS decryption. No requests means Steam is NOT using this relay.")
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	errorsCh := make(chan error, 2)
 	go func() { errorsCh <- server.Serve(listener) }()

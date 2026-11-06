@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -10,7 +11,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
-	"tetherflow-desktop/internal/steamsetup"
 	"unsafe"
 )
 
@@ -79,21 +79,22 @@ func waitParent(pid int, handle uint64) error {
 	}
 	return nil
 }
-func guard(pid int, lease string, handle uint64) error {
-	if e := waitParent(pid, handle); e != nil {
-		return e
-	}
-
+func guard(pid int, lease string, handle uint64, recoveryLog string) error {
 	path, e := hostsPath()
 	if e != nil {
+		writeRecoveryLog(recoveryLog, lease, "locate hosts", e)
 		return e
 	}
-	changed, e := steamsetup.Update(path, "", lease)
-	if e != nil {
+	return guardPath(pid, lease, handle, path, flushDNS, recoveryLog)
+}
+
+// guardPath waits for the parent to exit, however it died, then removes lease's entry
+// from hostsFile. Transient lock errors are retried for guardianBudget; any failure
+// is written to recoveryLog because a guardian has no console.
+func guardPath(pid int, lease string, handle uint64, hostsFile string, flush func() error, recoveryLog string) error {
+	if e := waitParent(pid, handle); e != nil {
+		writeRecoveryLog(recoveryLog, lease, "wait for parent", e)
 		return e
 	}
-	if changed {
-		return flushDNS()
-	}
-	return nil
+	return cleanupHosts(context.Background(), hostsFile, lease, guardianBudget, flush, recoveryLog)
 }
