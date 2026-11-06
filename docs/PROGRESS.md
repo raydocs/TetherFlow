@@ -12,6 +12,6 @@ Windows Steam 同时利用家庭 Wi-Fi 和 iPhone 蜂窝下载，目标接近手
 真实Apple Devices兼容性、iOS签名安装、Windows+iPhone USB吞吐、Steam实际采用与双路提速未验证。用户目前没有电脑，不能要求立即真机测试。当前方案走USBmux应用隧道，不依赖出现iPhone Ethernet网卡；仍依赖Apple USB服务，未证明修复苹果原生以太网驱动问题。
 
 ## 当前委派及下一步
-用户指定 Astra审计/计划，然后Claude Opus或Sonnet实施。已启动gpt-6-astra/xhigh独立worktree只读审计，clientRequestId steam-astra-audit-20261106；完成自动唤醒，不轮询。先接收真实问题和分阶段计划，再实施。当前T3报告Claude CLI未安装，不能调用Opus/Sonnet；不要静默换模型或自行安装。需告知用户并等待其恢复Claude连接或明确授权替代。
+Astra审计已完成，确认不仅差真机：同机重连、重新认证、传输健康、DNS、实时测量、诊断和hosts崩溃恢复均有源码缺口。Claude环境重新检测已恢复。已启动claude-opus-5-5/high独立worktree制定安全契约及剩余执行计划（clientRequestId steam-opus-contracts-20261106），仅允许写计划文档，不改源码；完成自动唤醒，不轮询。接收计划后按依赖逐个分派Sonnet有界实现，主线程集成与验证。不得将旧R2批准外推为这些新契约已满足。
 
 禁止修改原有未提交Android HighSpeedProxyEngine.kt。保留现有实验包，不把CI通过宣称成1200Mbps实机达标。
