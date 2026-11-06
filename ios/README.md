@@ -16,12 +16,18 @@ cd ios
 ./tools/validate.sh
 ```
 
-This runs macOS-host XCTest and Python tests, generates the Xcode project from
-`project.yml`, and requires an unsigned generic-device scheme build. Local Xcode
-26.6/SDK 26.5 has intermittent destination-discovery failures: a genuine generic
-build success is recorded, but the latest recheck failed. `build-device.sh` does
-not hide that failure behind a target-only fallback or install components. See
-[VALIDATION.md](VALIDATION.md) for exact evidence and deployment limitations.
+This runs macOS-host XCTest (Debug and `-c release -Xswiftc -enable-testing`), the Python tests,
+generates the Xcode project from `project.yml`, requires **unsigned generic-device scheme builds of both
+Debug and Release**, and then runs `tools/verify-app.sh` on the Release app. Local Xcode 26.6/SDK 26.5 has
+intermittent destination-discovery failures ("iOS 26.5 is not installed" for `generic/platform=iOS`):
+`build-device.sh` does not hide that failure behind a target-only fallback or install components, so
+report it and let CI decide. See [VALIDATION.md](VALIDATION.md) for exact evidence and limitations.
+
+`tools/verify-app.sh [--signed] <App.app>` checks behaviour, not just that it compiled: `vtool` shows platform
+IOS; no `UIBackgroundModes` or ATS exception in `Info.plist`; entitlements are at most `get-task-allow`
+(`--signed` also permits Xcode's `application-identifier` and team identifier); the binary has no
+`USBHostFixture` or `TEST-ONLY` strings; and `App/` and `Sources/` use no `UserDefaults`, `SecItemAdd`,
+file-write or archive API, so the session token (see the token contract below) stays in memory only.
 
 Generated project/build directories are ignored by `ios/.gitignore`. Re-generate:
 
@@ -30,12 +36,28 @@ xcodegen generate --spec project.yml
 open TetherFlowIOS.xcodeproj
 ```
 
-For a physical device, select your own signing Team and a unique bundle identifier
-in Xcode, enable Developer Mode, trust/pair the USB-connected phone, then build
-and run a signed app. The unsigned `.app` is compilation evidence, not an
-installable release. Xcode 26.6/SDK 26.5 does **not** establish iOS 27 device support;
-you may need a compatible Apple Xcode/device-support installation on your build
-machine before a signed iOS 27 deployment. This task did not install one.
+## Signing and deployment matrix (your own Mac only)
+
+| Step | Who/where | Needs | Result |
+|---|---|---|---|
+| Unsigned Debug + Release build, `verify-app.sh` | agents, CI, you | Xcode, XcodeGen; no account | compilation and policy evidence only; not installable |
+| `tools/build-signed.sh` | **you**, on your Mac | `TF_TEAM_ID`, `TF_BUNDLE_ID`, a compatible Xcode, an Apple account in Xcode | signed Release `.app`, entitlements and embedded profile checked |
+| Install, trust, run on the phone | **you** | iOS 27 phone, Developer Mode, cable | hardware gate H1; unverified until you record it |
+
+```sh
+cd ios
+TF_TEAM_ID=ABCDE12345 TF_BUNDLE_ID=com.example.tetherflow ./tools/build-signed.sh
+# add --allow-provisioning only to let Xcode create or update profiles with your account
+```
+
+`build-signed.sh` builds Release for `generic/platform=iOS`, passes `-allowProvisioningUpdates` only with
+`--allow-provisioning`, then checks `codesign -d --entitlements`, the embedded profile (team, application
+identifier) and `verify-app.sh --signed`. No agent or CI job runs it, and it never touches accounts unless
+you pass that flag. For Xcode's own UI, copy `Config/Signing.xcconfig.example` to the gitignored
+`Config/Signing.xcconfig`, set `DEVELOPMENT_TEAM` and `PRODUCT_BUNDLE_IDENTIFIER`, then regenerate the project.
+The unsigned `.app` is compilation evidence, not an installable release. Xcode 26.6/SDK 26.5 does **not**
+establish iOS 27 device support; you may need a compatible Xcode/device-support installation before a signed
+iOS 27 deployment. This work installed none, signed nothing, and used no account.
 
 ## USB setup (physical evidence still required)
 

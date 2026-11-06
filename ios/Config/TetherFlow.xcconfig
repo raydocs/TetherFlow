@@ -1,0 +1,4 @@
+// Defaults for every configuration. Local, gitignored overrides (team, bundle ID)
+// come from Config/Signing.xcconfig; copy Signing.xcconfig.example to create it.
+PRODUCT_BUNDLE_IDENTIFIER = com.tetherflow.prototype
+#include? "Signing.xcconfig"

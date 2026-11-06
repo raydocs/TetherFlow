@@ -2,3 +2,4 @@
 DerivedData/
 *.xcodeproj/
 __pycache__/
+Config/Signing.xcconfig

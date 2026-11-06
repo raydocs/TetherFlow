@@ -1,0 +1,4 @@
+// Copy to Config/Signing.xcconfig (gitignored) and fill in your own values, then
+// run `xcodegen generate --spec project.yml`. Never commit the real file.
+DEVELOPMENT_TEAM = YOURTEAMID
+PRODUCT_BUNDLE_IDENTIFIER = com.example.tetherflow

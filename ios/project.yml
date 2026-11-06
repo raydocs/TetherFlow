@@ -16,9 +16,11 @@ targets:
     sources:
       - App
       - Sources/ProxyCore
+    configFiles:
+      Debug: Config/TetherFlow.xcconfig
+      Release: Config/TetherFlow.xcconfig
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.tetherflow.prototype
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: TetherFlow Prototype
         INFOPLIST_KEY_UILaunchScreen_Generation: YES

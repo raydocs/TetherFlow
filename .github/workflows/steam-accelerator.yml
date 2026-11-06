@@ -56,6 +56,7 @@ jobs:
       - name: macOS host protocol tests (not physical iOS)
         run: |
           swift test --package-path ios
+          swift test --package-path ios -c release -Xswiftc -enable-testing
           python3 -m unittest discover -s ios/tools -p 'test_*.py' -v
       - uses: actions/setup-go@v5
         with:
@@ -63,10 +64,12 @@ jobs:
           cache: false
       - name: Cross-language Go to production Swift transport tests (host only)
         run: TF_INTEGRATION_COUNT=10 ./integration/verify-host.sh
-      - name: Unsigned generic iOS device build (not simulator or signed install)
+      - name: Unsigned generic iOS device builds, Debug and Release (not simulator or signed install)
         run: |
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
           ios/tools/build-device.sh
+      - name: Verify the unsigned Release app by behaviour
+        run: ios/tools/verify-app.sh ios/DerivedData/Build/Products/Release-iphoneos/TetherFlowIOS.app
       - uses: actions/upload-artifact@v4
         if: always()
         with:
